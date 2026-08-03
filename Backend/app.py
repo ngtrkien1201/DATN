@@ -1,3 +1,7 @@
+import os
+import sys
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 from flask import Flask, jsonify, request, render_template
 from flask_cors import CORS
 from database import init_db, get_latest_data, get_history, insert_data, save_twin_state, load_twin_state

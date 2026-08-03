@@ -7,7 +7,8 @@ const char* password = "12071999"; // Thay mật khẩu WiFi vào đây
 
 // ================= CẤU HÌNH SERVER VERCEL =================
 // ĐIỀN ĐƯỜNG DẪN VERCEL CỦA BẠN VÀO ĐÂY (VÍ DỤ: https://my-app.vercel.app/api/telemetry)
-const char* serverUrl = "https://[TEN_APP_CUA_BAN].vercel.app/api/telemetry";
+const char* serverUrl = "https://datn-mauve.vercel.app/api/telemetry";
+
 
 // ================= CẤU HÌNH UART =================
 #define RX_PIN 16
