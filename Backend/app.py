@@ -130,5 +130,28 @@ def simulate_scenario():
     res = battery_twin_instance.simulate_what_if(current, duration)
     return jsonify(res)
 
+@app.route('/api/test', methods=['GET'])
+def test_connection():
+    """Test endpoint to diagnose Vercel/MongoDB connection"""
+    try:
+        import os
+        mongo_uri = os.environ.get('MONGO_URI', 'NOT SET')
+        # Mask password for security
+        masked = mongo_uri[:20] + '...' if len(mongo_uri) > 20 else mongo_uri
+        
+        # Try a simple DB operation
+        from database import db
+        count = db['battery_data'].count_documents({})
+        
+        return jsonify({
+            "status": "OK",
+            "mongo_uri_set": mongo_uri != 'NOT SET',
+            "mongo_uri_preview": masked,
+            "record_count": count,
+            "python_path": sys.path
+        }), 200
+    except Exception as e:
+        return jsonify({"status": "ERROR", "error": str(e)}), 500
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)

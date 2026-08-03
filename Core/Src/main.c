@@ -115,7 +115,8 @@ int main(void)
 
 	Temperature_Init(&hadc1);
 	
-	char txBuff[250];
+	char txBuff[350];
+	char jsonBuff[100];
 	char statusStr[20];
 	
 	// Khởi động ngắt nhận UART (RX) để lắng nghe cấu hình từ bên ngoài
@@ -183,6 +184,19 @@ int main(void)
                   (uint8_t*)txBuff,
                   strlen(txBuff),
                   HAL_MAX_DELAY);
+
+		// Gửi JSON riêng biệt để đảm bảo không bị cắt xén
+		sprintf(jsonBuff,
+			"JSON: {\"V\":%.3f,\"I\":%.3f,\"T\":%.1f,\"SOC\":%d,\"SOH\":%d}\r\n",
+			Battery.Voltage,
+			Battery.Current,
+			Temp.Temperature,
+			Battery.SOC,
+			Battery.SOH);
+		HAL_UART_Transmit(&huart1,
+			(uint8_t*)jsonBuff,
+			strlen(jsonBuff),
+			HAL_MAX_DELAY);
 									
 	BatteryConfig_Print(&huart1);
 

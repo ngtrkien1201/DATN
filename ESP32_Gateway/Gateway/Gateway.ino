@@ -63,9 +63,17 @@ void loop()
             Serial.println("STM32: " + incomingData);
 
             // Chuỗi từ STM32 gửi lên có dạng: JSON: {"V":4.2, ...}
-            if (incomingData.startsWith("JSON: ")) 
+            int jsonIndex = incomingData.indexOf("JSON:");
+            if (jsonIndex >= 0) 
             {
-                String jsonString = incomingData.substring(6);
+                String jsonString = incomingData.substring(jsonIndex + 5);
+                jsonString.trim();
+                
+                // Kiểm tra JSON hợp lệ: phải bắt đầu bằng '{' và kết thúc bằng '}'
+                if (!jsonString.startsWith("{") || !jsonString.endsWith("}")) {
+                    Serial.println("-> JSON invalid, skipping: " + jsonString);
+                    return;
+                }
                 
                 // Đẩy gói JSON lên Vercel qua HTTP POST
                 if(WiFi.status() == WL_CONNECTED){
