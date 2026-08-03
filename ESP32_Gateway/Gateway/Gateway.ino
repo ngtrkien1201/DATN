@@ -1,0 +1,91 @@
+#include <WiFi.h>
+#include <HTTPClient.h>
+
+// ================= CẤU HÌNH WIFI =================
+const char* ssid = "kien";         // Thay tên WiFi của bạn vào đây
+const char* password = "12071999"; // Thay mật khẩu WiFi vào đây
+
+// ================= CẤU HÌNH SERVER VERCEL =================
+// ĐIỀN ĐƯỜNG DẪN VERCEL CỦA BẠN VÀO ĐÂY (VÍ DỤ: https://my-app.vercel.app/api/telemetry)
+const char* serverUrl = "https://[TEN_APP_CUA_BAN].vercel.app/api/telemetry";
+
+// ================= CẤU HÌNH UART =================
+#define RX_PIN 16
+#define TX_PIN 17
+
+void setup_wifi() 
+{
+    delay(10);
+    Serial.println();
+    Serial.print("Connecting to WiFi: ");
+    Serial.println(ssid);
+
+    WiFi.begin(ssid, password);
+
+    while (WiFi.status() != WL_CONNECTED) 
+    {
+        delay(500);
+        Serial.print(".");
+    }
+
+    Serial.println("\nWiFi connected!");
+    Serial.print("IP address: ");
+    Serial.println(WiFi.localIP());
+}
+
+void setup() 
+{
+    // Bật cổng Serial mặc định (Cắm cáp USB vào máy tính để xem Log)
+    Serial.begin(115200);
+    
+    // Bật cổng Serial1 để giao tiếp với STM32 (Baudrate 115200)
+    Serial1.begin(115200, SERIAL_8N1, RX_PIN, TX_PIN);
+    
+    setup_wifi();
+}
+
+void loop() 
+{
+    // Cần giữ kết nối WiFi
+    if(WiFi.status() != WL_CONNECTED) {
+        setup_wifi();
+    }
+
+    // =============== ĐỌC DỮ LIỆU TỪ STM32 ===============
+    if (Serial1.available()) 
+    {
+        String incomingData = Serial1.readStringUntil('\n'); // Đọc từng dòng
+        incomingData.trim(); // Cắt ký tự rác \r\n ở cuối
+        
+        if (incomingData.length() > 0)
+        {
+            Serial.println("STM32: " + incomingData);
+
+            // Chuỗi từ STM32 gửi lên có dạng: JSON: {"V":4.2, ...}
+            if (incomingData.startsWith("JSON: ")) 
+            {
+                String jsonString = incomingData.substring(6);
+                
+                // Đẩy gói JSON lên Vercel qua HTTP POST
+                if(WiFi.status() == WL_CONNECTED){
+                    HTTPClient http;
+                    http.begin(serverUrl);
+                    http.addHeader("Content-Type", "application/json");
+                    
+                    int httpResponseCode = http.POST(jsonString);
+                    
+                    if(httpResponseCode > 0){
+                        Serial.print("-> HTTP Response code: ");
+                        Serial.println(httpResponseCode);
+                    } else {
+                        Serial.print("-> Error code: ");
+                        Serial.println(httpResponseCode);
+                    }
+                    http.end();
+                } else {
+                    Serial.println("-> WiFi Disconnected, cannot send HTTP POST");
+                }
+            }
+        }
+    }
+}
