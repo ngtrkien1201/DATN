@@ -31,7 +31,7 @@ async function runWhatIf() {
     const duration = document.getElementById('sim-duration').value;
     
     try {
-        const res = await fetch(`http://${window.location.hostname}:5000/api/simulate`, { 
+        const res = await fetch(`/api/simulate`, { 
             method: 'POST', 
             headers: {'Content-Type': 'application/json'}, 
             body: JSON.stringify({current: parseFloat(current), duration: parseInt(duration)}) 
@@ -97,7 +97,7 @@ function pushBuf(key, val) { buf[key].push(val); if (buf[key].length > MAX_POINT
 // ============================================================
 async function updateTwin() {
     try {
-        const res = await fetch(`http://${window.location.hostname}:5000/api/digital-twin`);
+        const res = await fetch(`/api/digital-twin`);
         if (!res.ok) return;
         const d = await res.json();
 
