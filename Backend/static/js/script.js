@@ -272,18 +272,25 @@ updateTwin();
 // 5. SYSTEM CONFIGURATION
 // ============================================================
 async function updateBatteryConfig() {
-    const capacity = document.getElementById('config-battery-type').value;
-    const cmdStr = `SET_BATTERY:${capacity}`;
+    const batteryId = document.getElementById('config-battery-type').value;
+    const selectEl = document.getElementById('config-battery-type');
+    const batteryText = selectEl.options[selectEl.selectedIndex].text;
+    const cmdStr = `SET_PIN:${batteryId}`;
     
+    // Parse dung lượng từ text (VD: "Generic 18650 3.0Ah" -> 3.0)
+    let capacity = 2.2;
+    const match = batteryText.match(/(\d+\.\d+)Ah/);
+    if(match) capacity = parseFloat(match[1]);
+
     try {
         const res = await fetch('/api/command', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ command: cmdStr })
+            body: JSON.stringify({ command: cmdStr, capacity: capacity })
         });
         
         if(res.ok) {
-            alert(`Configuration sent! Battery capacity set to ${capacity}Ah.`);
+            alert(`Configuration sent! Battery type set to ${batteryText}.`);
         } else {
             alert("Failed to send configuration.");
         }

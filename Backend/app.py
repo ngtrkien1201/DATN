@@ -4,7 +4,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from flask import Flask, jsonify, request, render_template
 from flask_cors import CORS
-from database import init_db, get_latest_data, get_history, insert_data, save_twin_state, load_twin_state
+from database import init_db, get_latest_data, get_history, insert_data, save_twin_state, load_twin_state, save_pending_command, pop_pending_command
 from twin_model import battery_twin_instance
 import random
 
@@ -55,7 +55,13 @@ def receive_telemetry():
     battery_twin_instance.sync(data)
     _save_state()
     
-    return jsonify({"message": "Data received successfully"}), 200
+    # Kiểm tra xem có lệnh chờ nào không để gửi về cho ESP32
+    pending_cmd = pop_pending_command()
+    response = {"message": "Data received successfully"}
+    if pending_cmd:
+        response["command"] = pending_cmd
+    
+    return jsonify(response), 200
 
 @app.route('/api/dashboard', methods=['GET'])
 def get_dashboard():
@@ -118,19 +124,24 @@ def get_full_history():
 @app.route('/api/command', methods=['POST'])
 def send_cmd():
     cmd = request.json.get('command')
+    capacity = request.json.get('capacity')
     
-    if cmd and cmd.startswith('SET_BATTERY:'):
-        try:
-            capacity = float(cmd.split(':')[1])
-            _load_state()
-            battery_twin_instance.capacity_Ah = capacity
-            battery_twin_instance.capacity_As = capacity * 3600
-            battery_twin_instance.remaining_capacity = round(capacity * (battery_twin_instance.internal_twin_soc / 100.0), 3)
-            _save_state()
-        except Exception:
-            pass
+    if cmd and cmd.startswith('SET_PIN:'):
+        # Lưu vào DB để chờ ESP32 kéo về
+        save_pending_command(cmd)
+        
+        # Cập nhật ngay lập tức Digital Twin trên backend
+        if capacity:
+            try:
+                cap = float(capacity)
+                _load_state()
+                battery_twin_instance.capacity_Ah = cap
+                battery_twin_instance.capacity_As = cap * 3600
+                battery_twin_instance.remaining_capacity = round(cap * (battery_twin_instance.internal_twin_soc / 100.0), 3)
+                _save_state()
+            except Exception:
+                pass
 
-    # TODO: Lưu lệnh xuống Database để ESP32 dùng HTTP GET tải về định kỳ
     return jsonify({"status": "success", "command": cmd}), 200
 
 @app.route('/api/simulate', methods=['POST'])

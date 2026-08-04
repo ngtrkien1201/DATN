@@ -86,6 +86,24 @@ void loop()
                     if(httpResponseCode > 0){
                         Serial.print("-> HTTP Response code: ");
                         Serial.println(httpResponseCode);
+                        
+                        // Đọc nội dung phản hồi từ Vercel
+                        String response = http.getString();
+                        
+                        // Tìm xem Vercel có gửi lệnh cấu hình xuống không
+                        int cmdIndex = response.indexOf("\"command\":\"");
+                        if(cmdIndex > 0)
+                        {
+                            int start = cmdIndex + 11;
+                            int end = response.indexOf("\"", start);
+                            if(end > start)
+                            {
+                                String cmd = response.substring(start, end);
+                                // Gửi lệnh xuống STM32 qua Serial1 (UART) kèm \n (println)
+                                Serial1.println(cmd); 
+                                Serial.println("-> Sent command to STM32: " + cmd);
+                            }
+                        }
                     } else {
                         Serial.print("-> Error code: ");
                         Serial.println(httpResponseCode);

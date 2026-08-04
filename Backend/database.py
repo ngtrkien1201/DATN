@@ -53,3 +53,21 @@ def load_twin_state():
     if doc and "state" in doc:
         return doc["state"]
     return None
+
+def save_pending_command(command_str):
+    """ Lưu một lệnh chờ xuống DB để ESP32 lấy """
+    db['pending_commands'].insert_one({
+        "command": command_str,
+        "timestamp": datetime.utcnow()
+    })
+
+def pop_pending_command():
+    """ Lấy ra lệnh chờ cũ nhất và xóa nó (FIFO) """
+    # Tìm lệnh cũ nhất
+    doc = db['pending_commands'].find_one_and_delete(
+        {}, 
+        sort=[("timestamp", 1)]
+    )
+    if doc:
+        return doc.get("command")
+    return None
