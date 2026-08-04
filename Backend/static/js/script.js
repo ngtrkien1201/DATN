@@ -156,7 +156,7 @@ async function updateTwin() {
         
         document.getElementById('ov-tv').innerText = d.twin.terminal_voltage + ' V';
         document.getElementById('ov-tsoc').innerText = d.twin.soc + ' %';
-        document.getElementById('ov-err').innerText = (d.errors.voltage_mv || (d.errors.voltage * 1000).toFixed(1)) + ' mV';
+        document.getElementById('ov-err').innerText = (d.errors.voltage_mv !== undefined ? d.errors.voltage_mv : (d.errors.voltage * 1000).toFixed(1)) + ' mV';
         document.getElementById('ov-sync').innerText = d.sync_metrics.status;
         
         document.getElementById('ov-anomaly').innerText = d.edge_ai ? d.edge_ai.anomaly_class : "Normal";
