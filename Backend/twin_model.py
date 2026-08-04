@@ -21,7 +21,7 @@ def interpolate_ocv(soc):
 class BatteryTwin:
     def __init__(self):
         # 1. THÔNG SỐ VẬT LÝ CỦA MÔ HÌNH MẠCH TƯƠNG ĐƯƠNG (ECM Thevenin 1RC)
-        self.capacity_Ah = 2.6
+        self.capacity_Ah = 2.2 # Mặc định 2.2Ah
         self.capacity_As = self.capacity_Ah * 3600
         self.R0_nominal = 0.045
         self.R0 = self.R0_nominal

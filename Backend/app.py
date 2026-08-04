@@ -118,6 +118,18 @@ def get_full_history():
 @app.route('/api/command', methods=['POST'])
 def send_cmd():
     cmd = request.json.get('command')
+    
+    if cmd and cmd.startswith('SET_BATTERY:'):
+        try:
+            capacity = float(cmd.split(':')[1])
+            _load_state()
+            battery_twin_instance.capacity_Ah = capacity
+            battery_twin_instance.capacity_As = capacity * 3600
+            battery_twin_instance.remaining_capacity = round(capacity * (battery_twin_instance.internal_twin_soc / 100.0), 3)
+            _save_state()
+        except Exception:
+            pass
+
     # TODO: Lưu lệnh xuống Database để ESP32 dùng HTTP GET tải về định kỳ
     return jsonify({"status": "success", "command": cmd}), 200
 
