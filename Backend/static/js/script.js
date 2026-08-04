@@ -140,7 +140,17 @@ async function updateTwin() {
 
         // ------------------ GLOBAL STATUS BAR ------------------
         document.getElementById('gb-time').innerText = timeStr;
-        document.getElementById('gb-sys').innerText = d.sync_metrics.status === "Disconnected" ? "Offline" : "Online";
+        const isOnline = d.sync_metrics.status !== "Disconnected";
+        document.getElementById('gb-sys').innerText = isOnline ? "Online" : "Offline";
+        document.getElementById('gb-sys').className = isOnline ? "text-green" : "text-red";
+        
+        document.getElementById('gb-stm').innerText = isOnline ? "Connected" : "Disconnected";
+        document.getElementById('gb-stm').className = isOnline ? "" : "text-red";
+        document.getElementById('gb-esp').innerText = isOnline ? "Connected" : "Disconnected";
+        document.getElementById('gb-esp').className = isOnline ? "" : "text-red";
+        document.getElementById('gb-mqtt').innerText = isOnline ? "Connected" : "Disconnected";
+        document.getElementById('gb-mqtt').className = isOnline ? "" : "text-red";
+        
         document.getElementById('gb-mode').innerText = d.real.status;
         
         // ------------------ PAGE 1: SYSTEM OVERVIEW ------------------
