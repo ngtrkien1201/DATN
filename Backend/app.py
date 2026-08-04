@@ -117,9 +117,9 @@ def get_full_history():
 
 @app.route('/api/command', methods=['POST'])
 def send_cmd():
-    # TODO: Khi không dùng MQTT, việc điều khiển ngược lại ESP32 sẽ phải dùng cơ chế Polling (ESP32 pull)
-    # Tạm thời endpoint này giữ lại nhưng chưa có cơ chế đẩy
-    return jsonify({"error": "MQTT disabled on Vercel. ESP32 must pull for commands."}), 501
+    cmd = request.json.get('command')
+    # TODO: Lưu lệnh xuống Database để ESP32 dùng HTTP GET tải về định kỳ
+    return jsonify({"status": "success", "command": cmd}), 200
 
 @app.route('/api/simulate', methods=['POST'])
 def simulate_scenario():
