@@ -1,5 +1,5 @@
 // ============================================================
-// 1. ROUTER VIRTUAL (Chuyển trang SPA)
+// 1. ROUTER VIRTUAL (SPA Navigation)
 // ============================================================
 const menuItems = document.querySelectorAll('.menu-item');
 const pages = document.querySelectorAll('.page-content');
@@ -14,12 +14,14 @@ menuItems.forEach(item => {
             p.style.animation = 'none'; // Reset animation
         });
         
-        const targetPage = document.getElementById(item.getAttribute('data-target'));
-        targetPage.classList.remove('hidden');
-        
-        // Trigger reflow to restart animation
-        void targetPage.offsetWidth; 
-        targetPage.style.animation = 'fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards';
+        const targetId = item.getAttribute('data-target');
+        const targetPage = document.getElementById(targetId);
+        if(targetPage) {
+            targetPage.classList.remove('hidden');
+            // Trigger reflow to restart animation
+            void targetPage.offsetWidth; 
+            targetPage.style.animation = 'fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards';
+        }
     });
 });
 
@@ -38,151 +40,219 @@ async function runWhatIf() {
         });
         const data = await res.json();
         
-        document.getElementById('sim-results').style.display = 'block';
+        document.getElementById('sim-results').classList.remove('hidden');
         document.getElementById('sim-r-v').innerText = data.sim_voltage + ' V';
         document.getElementById('sim-r-soc').innerText = data.sim_soc + ' %';
         document.getElementById('sim-r-t').innerText = data.sim_temp + ' °C';
         document.getElementById('sim-r-vp').innerText = data.sim_vp + ' V';
-        
-    } catch (e) { alert("Lỗi khi chạy Sandbox Simulation!"); }
+    } catch (e) { alert("Error running simulation!"); }
 }
 
 // ============================================================
-// 3. KHỞI TẠO BIỂU ĐỒ (Chart.js) - Tái sử dụng code cũ
+// 3. CHART.JS INITIALIZATION WITH TIME AXIS
 // ============================================================
 let charts = {};
 
-function createDualChart(canvasId, label1, color1, label2, color2) {
-    const el = document.getElementById(canvasId);
-    if (!el) return null;
-    return new Chart(el.getContext('2d'), {
-        type: 'line',
-        data: { labels: [], datasets: [
-            { label: label1, data: [], borderColor: color1, tension: 0.4, pointRadius: 0, borderWidth: 2 },
-            { label: label2, data: [], borderColor: color2, tension: 0.4, pointRadius: 0, borderWidth: 2 }
-        ]},
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } }, scales: { x: { display: false }, y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#94a3b8', font: { size: 10 } } } } }
-    });
-}
+const commonOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: false,
+    scales: {
+        x: { 
+            type: 'time', 
+            time: { unit: 'second', displayFormats: { second: 'HH:mm:ss' }, tooltipFormat: 'HH:mm:ss' },
+            grid: { color: 'rgba(255,255,255,0.03)' },
+            ticks: { color: '#64748b', font: { size: 10 } }
+        },
+        y: { 
+            grid: { color: 'rgba(255,255,255,0.03)' }, 
+            ticks: { color: '#64748b', font: { size: 10 } } 
+        }
+    },
+    plugins: {
+        legend: { display: false }
+    }
+};
 
-function createSingleChart(canvasId, color) {
+function createChart(canvasId, datasets, isDual = false) {
     const el = document.getElementById(canvasId);
     if (!el) return null;
+    
+    let opt = JSON.parse(JSON.stringify(commonOptions));
+    if (isDual) {
+        opt.plugins.legend = { display: true, labels: { color: '#64748b', font: { size: 11 } } };
+    }
+    
     return new Chart(el.getContext('2d'), {
         type: 'line',
-        data: { labels: [], datasets: [{ data: [], borderColor: color, backgroundColor: `${color}22`, fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 }] },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#94a3b8', font: { size: 10 } } } } }
+        data: { datasets: datasets },
+        options: opt
     });
 }
 
 function initCharts() {
-    charts.volt = createDualChart('c-volt', 'Real Voltage', '#3b82f6', 'Twin Voltage', '#10b981');
-    charts.soc = createDualChart('c-soc', 'Real SOC', '#3b82f6', 'Twin SOC', '#10b981');
-    charts.err = createSingleChart('c-err', '#ef4444');
-    charts.res = createSingleChart('c-res', '#f59e0b');
-
-    charts.realV = createSingleChart('c-real-v', '#3b82f6');
-    charts.realI = createSingleChart('c-real-i', '#f59e0b');
-    charts.realT = createSingleChart('c-real-t', '#ef4444');
-    charts.realSOC = createSingleChart('c-real-soc', '#10b981');
+    // Overview
+    charts.overview = createChart('c-overview', [
+        { label: 'Voltage', data: [], borderColor: '#3b82f6', tension: 0.4, pointRadius: 0, borderWidth: 2, yAxisID: 'y' }
+    ]);
+    
+    // Live Monitoring
+    charts.lmV = createChart('c-lm-v', [{ data: [], borderColor: '#3b82f6', backgroundColor: '#3b82f622', fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 }]);
+    charts.lmI = createChart('c-lm-i', [{ data: [], borderColor: '#f59e0b', backgroundColor: '#f59e0b22', fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 }]);
+    charts.lmT = createChart('c-lm-t', [{ data: [], borderColor: '#ef4444', backgroundColor: '#ef444422', fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 }]);
+    charts.lmP = createChart('c-lm-p', [{ data: [], borderColor: '#10b981', backgroundColor: '#10b98122', fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 }]);
+    
+    // Validation
+    charts.valVolt = createChart('c-val-volt', [
+        { label: 'Measured V', data: [], borderColor: '#3b82f6', tension: 0.4, pointRadius: 0, borderWidth: 2 },
+        { label: 'Twin V', data: [], borderColor: '#10b981', tension: 0.4, pointRadius: 0, borderWidth: 2 }
+    ], true);
+    
+    charts.valSoc = createChart('c-val-soc', [
+        { label: 'Est. SOC', data: [], borderColor: '#3b82f6', tension: 0.4, pointRadius: 0, borderWidth: 2 },
+        { label: 'Twin SOC', data: [], borderColor: '#10b981', tension: 0.4, pointRadius: 0, borderWidth: 2 }
+    ], true);
+    
+    charts.valErr = createChart('c-val-err', [{ data: [], borderColor: '#ef4444', backgroundColor: '#ef444422', fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 }]);
+    charts.valRes = createChart('c-val-res', [{ data: [], borderColor: '#f59e0b', backgroundColor: '#f59e0b22', fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 }]);
 }
 initCharts();
 
 const MAX_POINTS = 60;
-const buf = { labels: [], realV: [], twinV: [], realSOC: [], twinSOC: [], errV: [], resH: [], realI: [], realT: [] };
-function pushBuf(key, val) { buf[key].push(val); if (buf[key].length > MAX_POINTS) buf[key].shift(); }
+function pushData(chart, datasetIndex, x, y) {
+    if(!chart) return;
+    const data = chart.data.datasets[datasetIndex].data;
+    data.push({ x: x, y: y });
+    if (data.length > MAX_POINTS) data.shift();
+}
 
 // ============================================================
-// 4. CẬP NHẬT DỮ LIỆU TWIN
+// 4. DATA POLLING & UI UPDATE
 // ============================================================
 async function updateTwin() {
     try {
         const res = await fetch(`/api/digital-twin`);
         if (!res.ok) return;
         const d = await res.json();
+        
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString();
 
-        // Sub-modules Status
-        document.getElementById('st-ecm').innerText = d.sub_modules.ecm_solver;
-        document.getElementById('st-soc').innerText = d.sub_modules.soc_estimator;
-        document.getElementById('st-soh').innerText = d.sub_modules.soh_estimator;
-        document.getElementById('st-pred').innerText = d.sub_modules.prediction_engine;
-
-        // Diagnostics
-        document.getElementById('diag-iter').innerText = d.diagnostics.model_iteration;
-        document.getElementById('diag-res').innerText = d.diagnostics.residual.toFixed(5);
-        document.getElementById('diag-acc').innerText = d.diagnostics.ecm_accuracy;
-        document.getElementById('diag-conf').innerText = d.diagnostics.prediction_confidence;
-
-        // Physical
-        document.getElementById('pb-v').innerText = d.real.voltage + ' V';
-        document.getElementById('pb-i').innerText = d.real.current + ' A';
-        document.getElementById('pb-soc').innerText = d.real.soc + ' %';
-        document.getElementById('pb-visual-fill').style.height = `${d.real.soc}%`;
-        document.getElementById('pb-soh2').innerText = d.real.soh + ' %'; // Page 5
-
-        // Twin
-        document.getElementById('db-ocv').innerText = d.twin.ocv + ' V';
-        document.getElementById('db-tv').innerText = d.twin.terminal_voltage + ' V';
-        document.getElementById('db-pv').innerText = d.twin.polarization_voltage + ' V';
-        document.getElementById('db-soc').innerText = d.twin.soc + ' %';
-        document.getElementById('db-visual-fill').style.height = `${d.twin.soc}%`;
-        document.getElementById('db-soh2').innerText = d.twin.soh + ' %'; // Page 5
-
-        // Parameters
-        document.getElementById('p-r0').innerText = d.model_parameters.R0 + ' Ω';
-        document.getElementById('p-r1').innerText = d.model_parameters.R1 + ' Ω';
-        document.getElementById('p-c1').innerText = d.model_parameters.C1 + ' F';
-
-        // Aging & RUL
-        document.getElementById('rul-cycles').innerText = d.aging_model.rul_cycles.split(' ')[0];
-        document.getElementById('rul-months').innerText = '~ ' + d.aging_model.rul_months;
-        document.getElementById('ag-cap').innerText = d.aging_model.capacity_fade;
-        document.getElementById('ag-res').innerText = d.aging_model.resistance_growth;
-        document.getElementById('ag-stage').innerText = d.aging_model.aging_stage;
-
-        // Multi-Horizon Prediction
-        let html = '';
-        d.predictions.forEach(p => {
-            html += `<tr><td style="padding:8px 0;">+ ${p.horizon}</td><td class="text-blue">${p.voltage} V</td><td class="text-green">${p.soc} %</td><td>${p.capacity} Ah</td></tr>`;
-        });
-        document.getElementById('multi-pred-body').innerHTML = html;
-
-        // Biểu đồ
-        pushBuf('labels', d.sync_metrics.last_update);
-        pushBuf('realV', d.real.voltage);
-        pushBuf('realI', d.real.current);
-        pushBuf('realT', d.real.temperature);
-        pushBuf('twinV', d.twin.terminal_voltage);
-        pushBuf('realSOC', d.real.soc);
-        pushBuf('twinSOC', d.twin.soc);
-        pushBuf('errV', d.errors.voltage);
-        pushBuf('resH', d.twin.internal_resistance);
-
-        if(charts.volt) {
-            charts.volt.data.labels = buf.labels; charts.volt.data.datasets[0].data = buf.realV; charts.volt.data.datasets[1].data = buf.twinV; charts.volt.update('none');
-            charts.soc.data.labels = buf.labels; charts.soc.data.datasets[0].data = buf.realSOC; charts.soc.data.datasets[1].data = buf.twinSOC; charts.soc.update('none');
-            charts.err.data.labels = buf.labels; charts.err.data.datasets[0].data = buf.errV; charts.err.update('none');
-            charts.res.data.labels = buf.labels; charts.res.data.datasets[0].data = buf.resH; charts.res.update('none');
-        }
-        if(charts.realV) {
-            charts.realV.data.labels = buf.labels; charts.realV.data.datasets[0].data = buf.realV; charts.realV.update('none');
-            charts.realI.data.labels = buf.labels; charts.realI.data.datasets[0].data = buf.realI; charts.realI.update('none');
-            charts.realT.data.labels = buf.labels; charts.realT.data.datasets[0].data = buf.realT; charts.realT.update('none');
-            charts.realSOC.data.labels = buf.labels; charts.realSOC.data.datasets[0].data = buf.realSOC; charts.realSOC.update('none');
+        // ------------------ GLOBAL STATUS BAR ------------------
+        document.getElementById('gb-time').innerText = timeStr;
+        document.getElementById('gb-sys').innerText = d.sync_metrics.status === "Disconnected" ? "Offline" : "Online";
+        document.getElementById('gb-mode').innerText = d.real.status;
+        
+        // ------------------ PAGE 1: SYSTEM OVERVIEW ------------------
+        document.getElementById('ov-v').innerText = d.real.voltage + ' V';
+        document.getElementById('ov-i').innerText = d.real.current + ' A';
+        document.getElementById('ov-t').innerText = d.real.temperature + ' °C';
+        document.getElementById('ov-p').innerText = (d.real.power || (d.real.voltage * d.real.current).toFixed(3)) + ' W';
+        document.getElementById('ov-e').innerText = (d.real.energy || 0.0) + ' Wh';
+        
+        document.getElementById('ov-soc').innerText = d.real.soc + ' %';
+        document.getElementById('ov-soh').innerText = d.real.soh + ' %';
+        document.getElementById('ov-cycle').innerText = d.twin.cycle_count;
+        
+        document.getElementById('ov-tv').innerText = d.twin.terminal_voltage + ' V';
+        document.getElementById('ov-tsoc').innerText = d.twin.soc + ' %';
+        document.getElementById('ov-err').innerText = (d.errors.voltage_mv || (d.errors.voltage * 1000).toFixed(1)) + ' mV';
+        document.getElementById('ov-sync').innerText = d.sync_metrics.status;
+        
+        document.getElementById('ov-anomaly').innerText = d.edge_ai ? d.edge_ai.anomaly_class : "Normal";
+        document.getElementById('ov-ascore').innerText = d.edge_ai ? d.edge_ai.anomaly_score : "0.05";
+        
+        // ------------------ PAGE 2: LIVE MONITORING ------------------
+        document.getElementById('lm-v').innerHTML = `${d.real.voltage} <small>V</small>`;
+        document.getElementById('lm-i').innerHTML = `${d.real.current} <small>A</small>`;
+        document.getElementById('lm-p').innerHTML = `${d.real.power || (d.real.voltage * d.real.current).toFixed(3)} <small>W</small>`;
+        document.getElementById('lm-soc').innerHTML = `${d.real.soc} <small>%</small>`;
+        
+        const liveTb = document.getElementById('live-table-body');
+        if(liveTb) {
+            const row = document.createElement('tr');
+            row.innerHTML = `<td>${timeStr}</td><td>${d.real.voltage} V</td><td>${d.real.current} A</td><td>${d.real.temperature} °C</td><td>${d.real.power || 0} W</td><td>${d.real.energy || 0} Wh</td><td class="text-green">${d.real.soc} %</td>`;
+            liveTb.insertBefore(row, liveTb.firstChild);
+            if(liveTb.children.length > 50) liveTb.removeChild(liveTb.lastChild);
         }
         
-        // History Table
-        const tb = document.getElementById('history-tbody');
-        if(tb) {
-            const row = document.createElement('tr');
-            row.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
-            row.innerHTML = `<td>${d.sync_metrics.last_update}</td><td>${d.real.voltage}</td><td>${d.real.current}</td><td>${d.real.temperature}</td><td>${d.real.soc}</td><td>${d.real.status}</td>`;
-            tb.insertBefore(row, tb.firstChild);
-            if(tb.children.length > 50) tb.removeChild(tb.lastChild);
+        // ------------------ PAGE 3: DIGITAL TWIN ------------------
+        document.getElementById('dt-pb-v').innerText = d.real.voltage + ' V';
+        document.getElementById('dt-pb-i').innerText = d.real.current + ' A';
+        document.getElementById('dt-pb-soc').innerText = d.real.soc + ' %';
+        document.getElementById('dt-pb-fill').style.height = `${d.real.soc}%`;
+        
+        document.getElementById('dt-sync-status').innerText = d.sync_metrics.status;
+        document.getElementById('dt-sync-pv').innerText = d.real.voltage + ' V';
+        document.getElementById('dt-sync-tv').innerText = d.twin.terminal_voltage + ' V';
+        
+        let residual = Math.abs(d.real.voltage - d.twin.terminal_voltage).toFixed(3);
+        document.getElementById('dt-sync-res').innerText = residual + ' V';
+        document.getElementById('dt-sync-err').innerText = d.errors.voltage + ' %';
+        document.getElementById('dt-sync-age').innerText = (d.sync_metrics.latency_ms / 1000).toFixed(1) + ' s';
+        
+        document.getElementById('dt-tb-ocv').innerText = d.twin.ocv + ' V';
+        document.getElementById('dt-tb-tv').innerText = d.twin.terminal_voltage + ' V';
+        document.getElementById('dt-tb-soc').innerText = d.twin.soc + ' %';
+        document.getElementById('dt-tb-fill').style.height = `${d.twin.soc}%`;
+        
+        document.getElementById('dt-p-r0').innerText = d.model_parameters.R0_mOhm + ' mΩ';
+        document.getElementById('dt-p-r1').innerText = (d.model_parameters.R1 * 1000).toFixed(1) + ' mΩ';
+        document.getElementById('dt-p-c1').innerText = d.model_parameters.C1 + ' F';
+        document.getElementById('dt-p-vp').innerText = d.twin.polarization_voltage + ' V';
+        
+        // ------------------ PAGE 4: EDGE AI ------------------
+        if(d.edge_ai) {
+            document.getElementById('ai-score').innerText = d.edge_ai.anomaly_score;
+            document.getElementById('ai-status').innerText = d.edge_ai.status;
+            document.getElementById('ai-class').innerText = d.edge_ai.anomaly_class;
+            document.getElementById('ai-conf').innerText = d.edge_ai.confidence + '%';
+            document.getElementById('ai-time').innerText = d.edge_ai.inference_time + ' ms';
+        }
+        
+        // ------------------ PAGE 5: VALIDATION ------------------
+        if(d.validation) {
+            document.getElementById('val-v-mae').innerHTML = `${d.validation.v_mae} <small>V</small>`;
+            document.getElementById('val-v-rmse').innerHTML = `${d.validation.v_rmse} <small>V</small>`;
+            document.getElementById('val-v-max').innerHTML = `${d.validation.v_max_err} <small>V</small>`;
+            document.getElementById('val-soc-mae').innerHTML = `${d.validation.soc_mae} <small>%</small>`;
+        }
+        
+        // ------------------ PAGE 6: RUL ------------------
+        document.getElementById('rul-cycles').innerText = d.aging_model.rul_cycles.split(' ')[0];
+        document.getElementById('rul-conf').innerText = d.aging_model.rul_confidence_range || 'N/A';
+        document.getElementById('rul-soh-cap').innerText = d.twin.soh + ' %'; // simplification
+        document.getElementById('rul-soh-res').innerText = (100 - parseFloat(d.aging_model.resistance_growth)).toFixed(1) + ' %';
+        document.getElementById('rul-fade').innerText = d.aging_model.capacity_fade;
+        document.getElementById('rul-growth').innerText = d.aging_model.resistance_growth;
+        document.getElementById('rul-est-cap').innerText = d.twin.remaining_capacity + ' Ah';
+        document.getElementById('rul-stage').innerText = d.aging_model.aging_stage;
+
+        // ------------------ UPDATE CHARTS ------------------
+        let timestamp = now.getTime();
+        
+        pushData(charts.overview, 0, timestamp, d.real.voltage);
+        
+        pushData(charts.lmV, 0, timestamp, d.real.voltage);
+        pushData(charts.lmI, 0, timestamp, d.real.current);
+        pushData(charts.lmT, 0, timestamp, d.real.temperature);
+        pushData(charts.lmP, 0, timestamp, d.real.power || (d.real.voltage * d.real.current));
+        
+        pushData(charts.valVolt, 0, timestamp, d.real.voltage);
+        pushData(charts.valVolt, 1, timestamp, d.twin.terminal_voltage);
+        pushData(charts.valSoc, 0, timestamp, d.real.soc);
+        pushData(charts.valSoc, 1, timestamp, d.twin.soc);
+        pushData(charts.valErr, 0, timestamp, residual);
+        pushData(charts.valRes, 0, timestamp, d.model_parameters.R0_mOhm);
+        
+        for (let key in charts) {
+            if(charts[key]) charts[key].update('none');
         }
 
         lucide.createIcons();
-    } catch (e) {}
+    } catch (e) {
+        console.error("Fetch error: ", e);
+    }
 }
 
 setInterval(updateTwin, 1000);
