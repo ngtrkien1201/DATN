@@ -267,3 +267,28 @@ async function updateTwin() {
 
 setInterval(updateTwin, 1000);
 updateTwin();
+
+// ============================================================
+// 5. SYSTEM CONFIGURATION
+// ============================================================
+async function updateBatteryConfig() {
+    const capacity = document.getElementById('config-battery-type').value;
+    const cmdStr = `SET_BATTERY:${capacity}`;
+    
+    try {
+        const res = await fetch('/api/command', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ command: cmdStr })
+        });
+        
+        if(res.ok) {
+            alert(`Configuration sent! Battery capacity set to ${capacity}Ah.`);
+        } else {
+            alert("Failed to send configuration.");
+        }
+    } catch (e) {
+        console.error("Config error:", e);
+        alert("Error sending configuration.");
+    }
+}

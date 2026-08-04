@@ -400,10 +400,33 @@
                     <div><h1>System Configuration</h1><p class="subtitle">Platform Settings & Thresholds</p></div>
                 </header>
                 
-                <div class="glass-panel p-4" style="margin-top: 1.5rem; text-align: center;">
-                    <i data-lucide="settings" style="width: 64px; height: 64px; color: var(--text-muted); opacity: 0.5; margin-bottom: 20px;"></i>
-                    <h2 class="text-muted">Configuration module under development</h2>
-                    <p class="text-muted mt-2">Will include MQTT broker settings, ESP32 OTA updates, and Anomaly Threshold tuning.</p>
+                <div class="grid-2" style="margin-top: 1.5rem;">
+                    <!-- Battery Profile Selection -->
+                    <div class="glass-panel p-4 border-neon">
+                        <h3 class="section-title text-blue"><i data-lucide="battery"></i> Battery Profile Selection</h3>
+                        <p class="text-sm text-muted mb-2">Select the battery type to synchronize the Digital Twin capacity and limits.</p>
+                        
+                        <div class="input-group mt-4">
+                            <label>Generic 18650 Battery Types</label>
+                            <select id="config-battery-type" style="background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 12px 15px; color: white; border-radius: 10px; outline: none; font-family: 'Outfit'; font-size: 1rem; width: 100%;">
+                                <option value="1.2">Generic 18650 1.2Ah</option>
+                                <option value="1.6">Generic 18650 1.6Ah</option>
+                                <option value="1.8">Generic 18650 1.8Ah</option>
+                                <option value="2.0">Generic 18650 2.0Ah</option>
+                                <option value="2.2" selected>Generic 18650 2.2Ah</option>
+                                <option value="3.0">Generic 18650 3.0Ah</option>
+                            </select>
+                        </div>
+                        
+                        <button class="btn-primary mt-4" onclick="updateBatteryConfig()"><i data-lucide="upload-cloud"></i> Apply Configuration</button>
+                    </div>
+
+                    <!-- Placeholder for other configs -->
+                    <div class="glass-panel p-4" style="text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                        <i data-lucide="settings" style="width: 48px; height: 48px; color: var(--text-muted); opacity: 0.5; margin-bottom: 20px;"></i>
+                        <h3 class="text-muted">Other Settings</h3>
+                        <p class="text-muted mt-2 text-sm">MQTT broker settings, ESP32 OTA updates, and Anomaly Threshold tuning will be available here.</p>
+                    </div>
                 </div>
             </div>
 

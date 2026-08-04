@@ -11,26 +11,23 @@ const BatteryConfig_t BatteryDatabase[] = {
     // ID 0: Pin Custom (Dành cho lệnh cấu hình tay)
     {"Custom", 2.2f, 3.7f, 4.2f, 3.0f},
     
-    // ID 1: Samsung 22F (Dòng xả thường)
-    {"Samsung 22F", 2.2f, 3.7f, 4.2f, 2.75f},
-    
-    // ID 2: Samsung 30Q (Dòng xả cao)
-    {"Samsung 30Q", 3.0f, 3.6f, 4.2f, 2.5f},
-    
-    // ID 3: Panasonic NCR18650B (Dung lượng cao)
-    {"Panasonic NCR", 3.4f, 3.6f, 4.2f, 2.5f},
-    
-    // ID 4: Sony VTC6 (Dòng xả siêu cao)
-    {"Sony VTC6", 3.0f, 3.6f, 4.2f, 2.0f},
-    
-    // ID 5: Generic 18650 1.2Ah (Pin dung lượng thấp / xe mô hình)
+    // ID 1: Generic 18650 1.2Ah
     {"Generic 1.2Ah", 1.2f, 3.7f, 4.2f, 2.75f},
     
-    // ID 6: Generic 18650 1.6Ah (Pin sạc dự phòng phổ thông)
+    // ID 2: Generic 18650 1.6Ah
     {"Generic 1.6Ah", 1.6f, 3.7f, 4.2f, 2.75f},
     
-    // ID 7: Generic 18650 1.8Ah
-    {"Generic 1.8Ah", 1.8f, 3.7f, 4.2f, 2.75f}
+    // ID 3: Generic 18650 1.8Ah
+    {"Generic 1.8Ah", 1.8f, 3.7f, 4.2f, 2.75f},
+    
+    // ID 4: Generic 18650 2.0Ah
+    {"Generic 2.0Ah", 2.0f, 3.7f, 4.2f, 2.75f},
+    
+    // ID 5: Generic 18650 2.2Ah
+    {"Generic 2.2Ah", 2.2f, 3.7f, 4.2f, 2.75f},
+    
+    // ID 6: Generic 18650 3.0Ah
+    {"Generic 3.0Ah", 3.0f, 3.7f, 4.2f, 2.75f}
 };
 
 #define BATTERY_DB_SIZE (sizeof(BatteryDatabase) / sizeof(BatteryConfig_t))
@@ -39,8 +36,8 @@ const BatteryConfig_t BatteryDatabase[] = {
 
 void BatteryConfig_Init(void)
 {
-    // Mặc định khởi động lên sẽ chọn pin số 1 (Samsung 22F)
-    BatteryConfig_Select(1);
+    // Mặc định khởi động lên sẽ chọn pin số 5 (Generic 2.2Ah)
+    BatteryConfig_Select(5);
 }
 
 // Hàm này để Web/ESP32 gọi khi người dùng chọn pin từ danh sách
