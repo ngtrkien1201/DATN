@@ -31,37 +31,42 @@ def index():
 @app.route('/api/telemetry', methods=['POST'])
 def receive_telemetry():
     """ Nhận dữ liệu từ ESP32 qua HTTP POST (Thay thế cho MQTT) """
-    data = request.json
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
+    try:
+        data = request.json
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
 
-    v = data.get('V', 0)
-    i = data.get('I', 0)
-    t = data.get('T', 0)
-    soc = data.get('SOC', 0)
-    soh = data.get('SOH', 0)
-    
-    # Calculate Power and simple Energy
-    p = round(v * i, 2)
-    energy = round(p * (1/3600), 4) # Assuming 1 sec interval
-    
-    status = "Charging" if i > 0 else ("Discharging" if i < 0 else "Idle")
-    
-    # Insert into DB
-    insert_data(v, i, p, energy, t, soc, soh, status)
-    
-    # Load old state, Sync, and Save state
-    _load_state()
-    battery_twin_instance.sync(data)
-    _save_state()
-    
-    # Kiểm tra xem có lệnh chờ nào không để gửi về cho ESP32
-    pending_cmd = pop_pending_command()
-    response = {"message": "Data received successfully"}
-    if pending_cmd:
-        response["command"] = pending_cmd
-    
-    return jsonify(response), 200
+        v = data.get('V', 0)
+        i = data.get('I', 0)
+        t = data.get('T', 0)
+        soc = data.get('SOC', 0)
+        soh = data.get('SOH', 0)
+        
+        # Calculate Power and simple Energy
+        p = round(v * i, 2)
+        energy = round(p * (1/3600), 4) # Assuming 1 sec interval
+        
+        status = "Charging" if i > 0 else ("Discharging" if i < 0 else "Idle")
+        
+        # Insert into DB
+        insert_data(v, i, p, energy, t, soc, soh, status)
+        
+        # Load old state, Sync, and Save state
+        _load_state()
+        battery_twin_instance.sync(data)
+        _save_state()
+        
+        # Kiểm tra xem có lệnh chờ nào không để gửi về cho ESP32
+        pending_cmd = pop_pending_command()
+        response = {"message": "Data received successfully"}
+        if pending_cmd:
+            response["command"] = pending_cmd
+        
+        return jsonify(response), 200
+    except Exception as e:
+        import traceback
+        err_msg = traceback.format_exc()
+        return jsonify({"error": str(e), "traceback": err_msg}), 500
 
 @app.route('/api/dashboard', methods=['GET'])
 def get_dashboard():

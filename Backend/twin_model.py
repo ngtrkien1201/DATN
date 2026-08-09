@@ -78,7 +78,7 @@ class BatteryTwin:
         # Calculate Power and Energy
         p = round(self.real_state['voltage'] * self.real_state['current'], 3)
         self.real_state['power'] = p
-        self.real_state['energy'] = round(self.real_state['energy'] + abs(p) * (dt / 3600), 4)
+        self.real_state['energy'] = round(self.real_state.get('energy', 0.0) + abs(p) * (dt / 3600), 4)
 
         status = real_data.get('Status', '')
         if not status:
