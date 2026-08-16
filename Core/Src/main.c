@@ -18,14 +18,18 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include <stdio.h>
-#include <string.h>
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "INA219.h"
 #include "Battery.h"
 #include "Temperature.h"
 #include "BatteryConfig.h"
+#include "SOH.h"
+#include <stdio.h>
+#include <string.h>
+#include "st7789.h"
+#include "fonts.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -48,6 +52,8 @@ ADC_HandleTypeDef hadc1;
 
 I2C_HandleTypeDef hi2c1;
 
+SPI_HandleTypeDef hspi1;
+
 TIM_HandleTypeDef htim2;
 
 UART_HandleTypeDef huart1;
@@ -66,8 +72,9 @@ static void MX_ADC1_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_USART1_UART_Init(void);
+static void MX_SPI1_Init(void);
 /* USER CODE BEGIN PFP */
-
+void TFT_UpdateUI(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -108,12 +115,19 @@ int main(void)
   MX_I2C1_Init();
   MX_TIM2_Init();
   MX_USART1_UART_Init();
+  MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
     BatteryConfig_Init(); // Khởi tạo Database pin (Phả gọi trước Battery_Init)
 	INA219_Init(&ina219, &hi2c1, INA219_ADDRESS);
 	Battery_Init(&ina219);
 
 	Temperature_Init(&hadc1);
+	
+	ST7789_Init();
+	ST7789_InvertColors(0); // Đảo ngược màu sắc (0 = tắt Inversion, sửa lỗi màu đen thành trắng)
+	HAL_GPIO_WritePin(TFT_BLK_GPIO_Port, TFT_BLK_Pin, GPIO_PIN_SET); // Bật đèn nền màn hình
+	ST7789_Fill_Color(BLACK);
+	ST7789_WriteString(10, 10, "SYSTEM READY", Font_11x18, GREEN, BLACK);
 	
 	char txBuff[350];
 	char jsonBuff[100];
@@ -132,6 +146,7 @@ int main(void)
     /* USER CODE BEGIN 3 */
 		Battery_Update();
     Temperature_Update();
+    TFT_UpdateUI(); // Cập nhật màn hình TFT
 
 		switch(Battery.Status)
 {
@@ -344,6 +359,44 @@ static void MX_I2C1_Init(void)
 }
 
 /**
+  * @brief SPI1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_SPI1_Init(void)
+{
+
+  /* USER CODE BEGIN SPI1_Init 0 */
+
+  /* USER CODE END SPI1_Init 0 */
+
+  /* USER CODE BEGIN SPI1_Init 1 */
+
+  /* USER CODE END SPI1_Init 1 */
+  /* SPI1 parameter configuration*/
+  hspi1.Instance = SPI1;
+  hspi1.Init.Mode = SPI_MODE_MASTER;
+  hspi1.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
+  hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi1.Init.NSS = SPI_NSS_SOFT;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
+  hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
+  hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi1.Init.CRCPolynomial = 10;
+  if (HAL_SPI_Init(&hspi1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN SPI1_Init 2 */
+
+  /* USER CODE END SPI1_Init 2 */
+
+}
+
+/**
   * @brief TIM2 Initialization Function
   * @param None
   * @retval None
@@ -442,6 +495,12 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
 
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(TFT_DC_GPIO_Port, TFT_DC_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOA, TFT_RST_Pin|TFT_CS_Pin|TFT_BLK_Pin, GPIO_PIN_SET);
+
   /*Configure GPIO pin : LED_Pin */
   GPIO_InitStruct.Pin = LED_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -449,12 +508,139 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LED_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pins : TFT_DC_Pin TFT_RST_Pin TFT_CS_Pin TFT_BLK_Pin */
+  GPIO_InitStruct.Pin = TFT_DC_Pin|TFT_RST_Pin|TFT_CS_Pin|TFT_BLK_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
   /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
+uint8_t current_page = 0;
+uint32_t last_page_switch = 0;
+
+void TFT_DrawBatteryIcon(uint16_t x, uint16_t y, uint8_t soc)
+{
+    ST7789_DrawRectangle(x, y, x + 60, y + 30, WHITE);
+    ST7789_DrawFilledRectangle(x + 60, y + 8, 4, 14, WHITE); // Đầu cực pin
+
+    uint16_t color = GREEN;
+    if (soc <= 20) color = RED;
+    else if (soc <= 50) color = YELLOW;
+
+    int fill_width = (soc * 56) / 100;
+    if (fill_width > 0) {
+        ST7789_DrawFilledRectangle(x + 2, y + 2, fill_width, 26, color);
+    }
+    if (fill_width < 56) {
+        ST7789_DrawFilledRectangle(x + 2 + fill_width, y + 2, 56 - fill_width, 26, BLACK);
+    }
+}
+
+void TFT_DrawPage_LiveSensor(void)
+{
+    char tftBuf[40];
+    
+    ST7789_WriteString(40, 5, "LIVE SENSOR DATA", Font_11x18, YELLOW, BLACK);
+    ST7789_DrawLine(10, 25, 310, 25, GRAY);
+
+    sprintf(tftBuf, "%5.2fV ", Battery.Voltage);
+    ST7789_WriteString(10, 40, tftBuf, Font_16x26, CYAN, BLACK);
+    
+    sprintf(tftBuf, "%5.2fA ", Battery.Current);
+    ST7789_WriteString(10, 80, tftBuf, Font_16x26, GREEN, BLACK);
+
+    sprintf(tftBuf, "P: %5.2fW   E: %5.4fWh ", Battery.Power, Battery.Energy);
+    ST7789_WriteString(10, 120, tftBuf, Font_11x18, WHITE, BLACK);
+
+    TFT_DrawBatteryIcon(230, 40, Battery.SOC);
+    sprintf(tftBuf, "SOC:%3d%%", Battery.SOC);
+    ST7789_WriteString(225, 80, tftBuf, Font_11x18, GREEN, BLACK);
+
+    ST7789_DrawRectangle(10, 150, 310, 230, GRAY);
+    ST7789_WriteString(120, 180, "LIVE GRAPH", Font_11x18, GRAY, BLACK);
+}
+
+void TFT_DrawPage_DigitalTwin(void)
+{
+    char tftBuf[40];
+    
+    ST7789_WriteString(30, 5, "DIGITAL TWIN (EDGE AI)", Font_11x18, MAGENTA, BLACK);
+    ST7789_DrawLine(10, 25, 310, 25, GRAY);
+
+    sprintf(tftBuf, "SOH: %3d%% ", Battery.SOH);
+    ST7789_WriteString(10, 40, tftBuf, Font_16x26, YELLOW, BLACK);
+
+    sprintf(tftBuf, "Cycles: %5.1f   ", BatterySOH.Cycles);
+    ST7789_WriteString(10, 80, tftBuf, Font_11x18, CYAN, BLACK);
+
+    sprintf(tftBuf, "Total Ah: %5.2f Ah ", BatterySOH.Total_Discharged_Ah);
+    ST7789_WriteString(10, 110, tftBuf, Font_11x18, CYAN, BLACK);
+
+    char* healthStr = (Battery.SOH > 70) ? "HEALTHY " : "DEGRADED";
+    uint16_t healthColor = (Battery.SOH > 70) ? GREEN : RED;
+    ST7789_WriteString(10, 150, "AI Diagnosis:", Font_11x18, WHITE, BLACK);
+    ST7789_WriteString(160, 150, healthStr, Font_11x18, healthColor, BLACK);
+}
+
+void TFT_DrawPage_Safety(void)
+{
+    char tftBuf[40];
+    
+    ST7789_WriteString(60, 5, "THERMAL & SAFETY", Font_11x18, RED, BLACK);
+    ST7789_DrawLine(10, 25, 310, 25, GRAY);
+
+    uint16_t tempColor = (Temp.Temperature > 45.0) ? RED : GREEN;
+    sprintf(tftBuf, "Temp: %5.1fC ", Temp.Temperature);
+    ST7789_WriteString(10, 40, tftBuf, Font_16x26, tempColor, BLACK);
+
+    char* stStr = "UNKNOWN    ";
+    if (Battery.Status == BATTERY_IDLE) stStr = "IDLE       ";
+    else if (Battery.Status == BATTERY_CHARGING) stStr = "CHARGING   ";
+    else if (Battery.Status == BATTERY_DISCHARGING) stStr = "DISCHARGING";
+    
+    sprintf(tftBuf, "State: %s", stStr);
+    ST7789_WriteString(10, 90, tftBuf, Font_11x18, YELLOW, BLACK);
+
+    char* alertStr = (Temp.Temperature > 45.0) ? "OVERHEAT WARNING!" : "NORMAL OPERATION ";
+    uint16_t alertColor = (Temp.Temperature > 45.0) ? RED : GREEN;
+    ST7789_WriteString(10, 140, "System Status:", Font_11x18, WHITE, BLACK);
+    ST7789_WriteString(10, 170, alertStr, Font_11x18, alertColor, BLACK);
+}
+
+void TFT_UpdateUI(void)
+{
+    uint32_t current_time = HAL_GetTick();
+
+    // Chuyển trang mỗi 5 giây
+    if (current_time - last_page_switch > 5000)
+    {
+        last_page_switch = current_time;
+        current_page++;
+        if (current_page > 2) current_page = 0;
+        
+        // Xoá màn hình khi chuyển trang để không bị đè chữ
+        ST7789_Fill_Color(BLACK);
+    }
+
+    switch (current_page)
+    {
+        case 0:
+            TFT_DrawPage_LiveSensor();
+            break;
+        case 1:
+            TFT_DrawPage_DigitalTwin();
+            break;
+        case 2:
+            TFT_DrawPage_Safety();
+            break;
+    }
+}
 
 // Hàm ngắt nhận dữ liệu UART (Được gọi tự động mỗi khi nhận 1 byte)
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)

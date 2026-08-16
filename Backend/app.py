@@ -2,9 +2,9 @@ import os
 import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request, render_template, Response
 from flask_cors import CORS
-from database import init_db, get_latest_data, get_history, insert_data, save_twin_state, load_twin_state, save_pending_command, pop_pending_command
+from database import init_db, get_latest_data, get_history, get_all_history, insert_data, save_twin_state, load_twin_state, save_pending_command, pop_pending_command
 from twin_model import battery_twin_instance
 import random
 
@@ -48,13 +48,20 @@ def receive_telemetry():
         
         status = "Charging" if i > 0 else ("Discharging" if i < 0 else "Idle")
         
-        # Insert into DB
-        insert_data(v, i, p, energy, t, soc, soh, status)
-        
         # Load old state, Sync, and Save state
         _load_state()
         battery_twin_instance.sync(data)
         _save_state()
+        
+        twin_state = battery_twin_instance.twin_state
+        
+        # Insert into DB WITH Twin data
+        insert_data(
+            v, i, p, energy, t, soc, soh, status,
+            twin_ocv=twin_state.get('ocv', 0),
+            twin_r0=twin_state.get('internal_resistance', 0),
+            twin_vp=twin_state.get('polarization_voltage', 0)
+        )
         
         # Kiểm tra xem có lệnh chờ nào không để gửi về cho ESP32
         pending_cmd = pop_pending_command()
@@ -120,6 +127,40 @@ def get_edge_ai():
         "failure_probability": f"{fail_prob}%",
         "recommendation": rec
     })
+
+@app.route('/api/export-csv', methods=['GET'])
+def export_csv():
+    import io
+    import csv
+    docs = get_all_history()
+    
+    # Create an in-memory string buffer
+    si = io.StringIO()
+    writer = csv.writer(si)
+    
+    # Write header
+    writer.writerow(['Timestamp', 'V_real', 'I_real', 'T_real', 'SOC_real', 'SOH_real', 'OCV_twin', 'R0_mOhm_twin', 'Vp_twin'])
+    
+    # Write data
+    for doc in docs:
+        writer.writerow([
+            doc.get('timestamp', ''),
+            doc.get('voltage', 0),
+            doc.get('current', 0),
+            doc.get('temperature', 0),
+            doc.get('soc', 0),
+            doc.get('soh', 0),
+            doc.get('twin_ocv', 0),
+            doc.get('twin_r0', 0),
+            doc.get('twin_vp', 0)
+        ])
+    
+    output = si.getvalue()
+    return Response(
+        output,
+        mimetype="text/csv",
+        headers={"Content-disposition": "attachment; filename=hybrid_dataset.csv"}
+    )
 
 @app.route('/api/history', methods=['GET'])
 def get_full_history():

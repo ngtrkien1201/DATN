@@ -13,7 +13,7 @@ def init_db():
     # MongoDB tự động tạo db và collection khi có dữ liệu nên không cần CREATE TABLE
     pass
 
-def insert_data(voltage, current, power, energy, temperature, soc, soh, status):
+def insert_data(voltage, current, power, energy, temperature, soc, soh, status, twin_ocv=0.0, twin_r0=0.0, twin_vp=0.0):
     data = {
         "timestamp": datetime.utcnow().isoformat() + "Z",
         "voltage": voltage,
@@ -23,7 +23,10 @@ def insert_data(voltage, current, power, energy, temperature, soc, soh, status):
         "temperature": temperature,
         "soc": soc,
         "soh": soh,
-        "status": status
+        "status": status,
+        "twin_ocv": twin_ocv,
+        "twin_r0": twin_r0,
+        "twin_vp": twin_vp
     }
     collection.insert_one(data)
 
@@ -39,6 +42,13 @@ def get_history(limit=50):
     # Tuy nhiên, để lấy N phần tử gần nhất thì phải sort giảm dần rồi reverse, hoặc sort giảm dần lấy limit rồi reverse
     docs = list(collection.find().sort('_id', -1).limit(limit))
     docs.reverse()
+    for doc in docs:
+         doc['_id'] = str(doc['_id'])
+    return docs
+
+def get_all_history():
+    # Lấy toàn bộ dữ liệu lịch sử tăng dần theo thời gian
+    docs = list(collection.find().sort('_id', 1))
     for doc in docs:
          doc['_id'] = str(doc['_id'])
     return docs
