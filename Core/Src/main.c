@@ -553,13 +553,13 @@ void TFT_DrawPage_LiveSensor(void)
     ST7789_WriteString(40, 5, "LIVE SENSOR DATA", Font_11x18, YELLOW, BLACK);
     ST7789_DrawLine(10, 25, 310, 25, GRAY);
 
-    sprintf(tftBuf, "%5.2fV ", Battery.Voltage);
+    sprintf(tftBuf, "%5.3fV ", Battery.Voltage);
     ST7789_WriteString(10, 40, tftBuf, Font_16x26, CYAN, BLACK);
     
-    sprintf(tftBuf, "%5.2fA ", Battery.Current);
+    sprintf(tftBuf, "%5.3fA ", Battery.Current);
     ST7789_WriteString(10, 80, tftBuf, Font_16x26, GREEN, BLACK);
 
-    sprintf(tftBuf, "P: %5.2fW   E: %5.4fWh ", Battery.Power, Battery.Energy);
+    sprintf(tftBuf, "P: %5.3fW   E: %5.4fWh ", Battery.Power, Battery.Energy);
     ST7789_WriteString(10, 120, tftBuf, Font_11x18, WHITE, BLACK);
 
     TFT_DrawBatteryIcon(230, 40, Battery.SOC);
