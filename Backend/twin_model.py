@@ -75,10 +75,18 @@ class BatteryTwin:
         self.real_state['soc'] = real_data.get('SOC', 0.0)
         self.real_state['soh'] = real_data.get('SOH', 0.0)
         
-        # Calculate Power and Energy
-        p = round(self.real_state['voltage'] * self.real_state['current'], 3)
-        self.real_state['power'] = p
-        self.real_state['energy'] = round(self.real_state.get('energy', 0.0) + abs(p) * (dt / 3600), 4)
+        # Ưu tiên lấy Power và Energy từ mạch gửi lên (JSON), nếu không có mới tự tính
+        p_json = real_data.get('P')
+        if p_json is not None:
+            self.real_state['power'] = p_json
+        else:
+            self.real_state['power'] = round(self.real_state['voltage'] * self.real_state['current'], 3)
+            
+        e_json = real_data.get('E')
+        if e_json is not None:
+            self.real_state['energy'] = e_json
+        else:
+            self.real_state['energy'] = round(self.real_state.get('energy', 0.0) + abs(self.real_state['power']) * (dt / 3600), 4)
 
         status = real_data.get('Status', '')
         if not status:
