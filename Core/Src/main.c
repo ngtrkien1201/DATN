@@ -178,7 +178,7 @@ int main(void)
         "SOH     : %d %%\r\n"
         "Temp    : %.1f C\r\n"
         "=============================\r\n"
-        "JSON: {\"V\":%.3f,\"I\":%.3f,\"T\":%.1f,\"SOC\":%d,\"SOH\":%d}\r\n",
+        "JSON: {\"V\":%.3f,\"I\":%.3f,\"P\":%.3f,\"E\":%.6f,\"T\":%.1f,\"SOC\":%d,\"SOH\":%d}\r\n",
 
         Battery.Voltage,
 				Battery.Current,
@@ -191,6 +191,8 @@ int main(void)
 				// Dành cho JSON
 				Battery.Voltage,
 				Battery.Current,
+				Battery.Power,
+				Battery.Energy,
 				Temp.Temperature,
 				Battery.SOC,
                 Battery.SOH);
@@ -202,9 +204,11 @@ int main(void)
 
 		// Gửi JSON riêng biệt để đảm bảo không bị cắt xén
 		sprintf(jsonBuff,
-			"JSON: {\"V\":%.3f,\"I\":%.3f,\"T\":%.1f,\"SOC\":%d,\"SOH\":%d}\r\n",
+			"JSON: {\"V\":%.3f,\"I\":%.3f,\"P\":%.3f,\"E\":%.6f,\"T\":%.1f,\"SOC\":%d,\"SOH\":%d}\r\n",
 			Battery.Voltage,
 			Battery.Current,
+			Battery.Power,
+			Battery.Energy,
 			Temp.Temperature,
 			Battery.SOC,
 			Battery.SOH);

@@ -2,8 +2,8 @@
 #include <HTTPClient.h>
 
 // ================= CẤU HÌNH WIFI =================
-const char* ssid = "kien";         // Thay tên WiFi của bạn vào đây
-const char* password = "12071999"; // Thay mật khẩu WiFi vào đây
+const char* ssid = "LinhTrung_3";         // Thay tên WiFi của bạn vào đây
+const char* password = "23012024"; // Thay mật khẩu WiFi vào đây
 
 // ================= CẤU HÌNH SERVER VERCEL =================
 // ĐIỀN ĐƯỜNG DẪN VERCEL CỦA BẠN VÀO ĐÂY (VÍ DỤ: https://my-app.vercel.app/api/telemetry)

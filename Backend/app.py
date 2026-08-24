@@ -43,10 +43,10 @@ def receive_telemetry():
         soh = data.get('SOH', 0)
         
         # Calculate Power and simple Energy
-        p = round(v * i, 2)
-        energy = round(p * (1/3600), 4) # Assuming 1 sec interval
+        p = data.get('P', round(v * i, 2))
+        energy = data.get('E', round(p * (1/3600), 4)) # Use E from JSON, or assume 1 sec interval
         
-        status = "Charging" if i > 0 else ("Discharging" if i < 0 else "Idle")
+        status = "Discharging" if i > 0 else ("Charging" if i < 0 else "Idle")
         
         # Load old state, Sync, and Save state
         _load_state()

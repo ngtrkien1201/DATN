@@ -53,6 +53,11 @@ def get_all_history():
          doc['_id'] = str(doc['_id'])
     return docs
 
+def clear_all_history():
+    # Xoá toàn bộ dữ liệu lịch sử
+    collection.delete_many({})
+    return True
+
 def save_twin_state(state_dict):
     """ Lưu trạng thái Digital Twin vào DB (Vercel cần cái này vì RAM bị xóa sau mỗi request) """
     twin_state_collection.replace_one({"_id": "current_state"}, {"_id": "current_state", "state": state_dict}, upsert=True)

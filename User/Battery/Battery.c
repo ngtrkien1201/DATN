@@ -43,6 +43,12 @@ void Battery_Update(void)
     /* Dòng điện (mA -> A) */
     Battery.Current = INA219_ReadCurrent(Battery.INA219) / 1000.0f;
     
+    // Khử nhiễu cảm biến INA219 (Deadband) - Loại bỏ dòng rò 0.02A
+    if (Battery.Current > -0.03f && Battery.Current < 0.03f)
+    {
+        Battery.Current = 0.0f;
+    }
+    
     // Phân loại trạng thái pin
     if(Battery.Current > 0.01f)
     {
