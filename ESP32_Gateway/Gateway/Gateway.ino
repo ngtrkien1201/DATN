@@ -55,8 +55,15 @@ void loop()
     // =============== ĐỌC DỮ LIỆU TỪ STM32 ===============
     if (Serial1.available()) 
     {
-        String incomingData = Serial1.readStringUntil('\n'); // Đọc từng dòng
-        incomingData.trim(); // Cắt ký tự rác \r\n ở cuối
+        String incomingData = "";
+        // Đọc hết buffer để lấy gói tin MỚI NHẤT (tránh bị trễ do HTTP POST chậm)
+        while (Serial1.available()) {
+            String line = Serial1.readStringUntil('\n');
+            line.trim();
+            if (line.indexOf("JSON:") >= 0) {
+                incomingData = line;
+            }
+        }
         
         if (incomingData.length() > 0)
         {

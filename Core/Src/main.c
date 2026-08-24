@@ -177,8 +177,7 @@ int main(void)
         "SOC     : %d %%\r\n"
         "SOH     : %d %%\r\n"
         "Temp    : %.1f C\r\n"
-        "=============================\r\n"
-        "JSON: {\"V\":%.3f,\"I\":%.3f,\"P\":%.3f,\"E\":%.6f,\"T\":%.1f,\"SOC\":%d,\"SOH\":%d}\r\n",
+        "=============================\r\n",
 
         Battery.Voltage,
 				Battery.Current,
@@ -187,15 +186,7 @@ int main(void)
 				statusStr,
 				Battery.SOC,
                 Battery.SOH,
-				Temp.Temperature,
-				// Dành cho JSON
-				Battery.Voltage,
-				Battery.Current,
-				Battery.Power,
-				Battery.Energy,
-				Temp.Temperature,
-				Battery.SOC,
-                Battery.SOH);
+				Temp.Temperature);
 
 		HAL_UART_Transmit(&huart1,
                   (uint8_t*)txBuff,
