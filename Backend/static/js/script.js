@@ -213,13 +213,61 @@ async function updateTwin() {
         
         // ------------------ PAGE 4: EDGE AI ------------------
         if(d.edge_ai) {
-            document.getElementById('ai-score').innerText = d.edge_ai.anomaly_score;
-            document.getElementById('ai-status').innerText = d.edge_ai.status;
+            const aiScore = d.edge_ai.anomaly_score;
+            const scoreEl = document.getElementById('ai-score');
+            const scoreBar = document.getElementById('ai-score-bar');
+            scoreEl.innerText = aiScore.toFixed(2);
+            
+            // Dynamic color for score
+            let colorVar = 'var(--emerald)';
+            if (aiScore >= 0.7) {
+                colorVar = 'var(--rose)';
+            } else if (aiScore >= 0.3) {
+                colorVar = 'var(--orange)';
+            }
+            
+            scoreEl.style.color = colorVar;
+            scoreEl.style.textShadow = `0 0 20px ${colorVar}66`;
+            if (scoreBar) {
+                scoreBar.style.width = `${Math.min(100, Math.max(0, aiScore * 100))}%`;
+                scoreBar.style.background = colorVar;
+            }
+
+            const statusEl = document.getElementById('ai-status');
+            statusEl.innerText = d.edge_ai.status_label || d.edge_ai.status;
+            if (d.edge_ai.status_label === 'Normal') {
+                statusEl.className = 'text-green';
+            } else if (d.edge_ai.status_label === 'Warning') {
+                statusEl.className = 'text-orange';
+            } else {
+                statusEl.className = 'text-red';
+            }
+
             document.getElementById('ai-class').innerText = d.edge_ai.anomaly_class;
-            document.getElementById('ai-conf').innerText = d.edge_ai.confidence + '%';
+            
+            const conf = d.edge_ai.confidence;
+            document.getElementById('ai-conf').innerText = conf + '%';
+            const confBar = document.getElementById('ai-conf-bar');
+            if (confBar) {
+                confBar.style.width = `${conf}%`;
+            }
+            
             document.getElementById('ai-time').innerText = d.edge_ai.inference_time + ' ms';
+            
+            // Push history to table if it's an anomaly (score >= 0.7)
+            // (Thực tế nên lấy từ backend history, ở đây mô phỏng UI update)
+            if (aiScore >= 0.7 && Math.random() > 0.95) { // Tránh spam bảng liên tục, chỉ thêm khi có lỗi và xác suất nhỏ
+                const histTb = document.getElementById('ai-history-body');
+                if (histTb) {
+                    const row = document.createElement('tr');
+                    const badge = aiScore > 0.9 ? '<span class="status-badge badge-red">Alert</span>' : '<span class="status-badge badge-orange">Warning</span>';
+                    const colorCls = aiScore > 0.9 ? 'text-red' : 'text-orange';
+                    row.innerHTML = `<td>${timeStr}</td><td>${d.edge_ai.anomaly_class}</td><td class="${colorCls}">${aiScore.toFixed(2)}</td><td>${d.real.voltage} V</td><td>${d.real.current} A</td><td>${d.real.temperature}°C</td><td>${badge}</td>`;
+                    histTb.insertBefore(row, histTb.firstChild);
+                    if (histTb.children.length > 10) histTb.removeChild(histTb.lastChild);
+                }
+            }
         }
-        
         // ------------------ PAGE 5: VALIDATION ------------------
         if(d.validation) {
             document.getElementById('val-v-mae').innerHTML = `${d.validation.v_mae} <small>V</small>`;

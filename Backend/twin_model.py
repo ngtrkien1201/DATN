@@ -57,6 +57,7 @@ class BatteryTwin:
         self.errors = {'voltage': 0.0, 'voltage_mv': 0.0, 'soc': 0.0, 'soh': 0.0, 'temperature': 0.0}
         self.validation = {'v_mae': 0.0, 'v_rmse': 0.0, 'v_max_err': 0.0, 'soc_mae': 0.0}
         self.error_history = {'v': [], 'soc': []}
+        self.edge_ai_state = {'AI_Class': 0, 'AI_Score': 100.0, 'AI_Time': 0}
 
         self.last_sync_timestamp = time.time()
         self.sync_rate = 0.0
@@ -74,6 +75,12 @@ class BatteryTwin:
         self.real_state['temperature'] = real_data.get('T', 0.0)
         self.real_state['soc'] = real_data.get('SOC', 0.0)
         self.real_state['soh'] = real_data.get('SOH', 0.0)
+        
+        # Lưu trữ trạng thái AI (Nếu có gửi lên từ ESP32)
+        if 'AI_Class' in real_data:
+            self.edge_ai_state['AI_Class'] = real_data['AI_Class']
+            self.edge_ai_state['AI_Score'] = real_data.get('AI_Score', 0.0)
+            self.edge_ai_state['AI_Time'] = real_data.get('AI_Time', 0)
         
         # Ưu tiên lấy Power và Energy từ mạch gửi lên (JSON), nếu không có mới tự tính
         p_json = real_data.get('P')
@@ -326,6 +333,33 @@ class BatteryTwin:
         dt_str = datetime.datetime.fromtimestamp(self.last_sync_timestamp).strftime('%H:%M:%S')
         aging_data = self.calculate_aging_metrics()
         preds = self.predict_multi_horizon()
+        
+        # Xử lý Edge AI Data
+        ai_class_idx = self.edge_ai_state.get('AI_Class', 0)
+        ai_confidence = self.edge_ai_state.get('AI_Score', 100.0)
+        ai_time_ms = self.edge_ai_state.get('AI_Time', 0)
+        
+        AI_CLASS_MAP = {
+            0: "Normal Operation",
+            1: "Over-voltage",
+            2: "Under-voltage",
+            3: "Over-current",
+            4: "Over-heat"
+        }
+        
+        class_name = AI_CLASS_MAP.get(ai_class_idx, f"Unknown Class {ai_class_idx}")
+        
+        # Nếu Normal, Anomaly score thấp. Nếu Lỗi, Anomaly score cao
+        if ai_class_idx == 0:
+            anomaly_score = round(1.0 - (ai_confidence / 100.0), 3)
+            ai_status_str = "Normal"
+        else:
+            anomaly_score = round(ai_confidence / 100.0, 3)
+            ai_status_str = "Warning" if anomaly_score < 0.8 else "Alert"
+            
+        # Nếu chưa nhận được dữ liệu AI bao giờ thì báo Waiting
+        has_ai_data = self.edge_ai_state.get('AI_Time', 0) > 0
+        ai_run_status = "Running (ESP32-S3)" if has_ai_data else "Waiting for Data"
 
         return {
             'real': self.real_state,
@@ -338,7 +372,7 @@ class BatteryTwin:
                 'soc_estimator': "Running",
                 'soh_estimator': "Running",
                 'prediction_engine': "Running",
-                'ai_layer': "Standby"
+                'ai_layer': "Running" if has_ai_data else "Standby"
             },
             'diagnostics': {
                 'update_freq': "1 Hz",
@@ -363,11 +397,12 @@ class BatteryTwin:
             },
             'validation': self.validation,
             'edge_ai': {
-                'status': 'Running (ESP32-S3)',
-                'anomaly_class': 'Normal Operation' if self.real_state['temperature'] < 45 else 'Over-temperature',
-                'anomaly_score': round(random.uniform(0.05, 0.15) if self.real_state['temperature'] < 45 else random.uniform(0.75, 0.95), 2),
-                'confidence': random.randint(88, 98),
-                'inference_time': random.randint(12, 18)
+                'status': ai_run_status,
+                'status_label': ai_status_str,
+                'anomaly_class': class_name,
+                'anomaly_score': anomaly_score if has_ai_data else 0.0,
+                'confidence': round(ai_confidence, 1) if has_ai_data else 0.0,
+                'inference_time': ai_time_ms if has_ai_data else 0
             },
             'metadata': {
                 'twin_id': 'Battery-001'

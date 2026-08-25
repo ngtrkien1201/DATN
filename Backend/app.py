@@ -48,6 +48,11 @@ def receive_telemetry():
         
         status = "Discharging" if i > 0 else ("Charging" if i < 0 else "Idle")
         
+        # AI Metrics from ESP32
+        ai_class = data.get('AI_Class', 0)
+        ai_score = data.get('AI_Score', 0.0)
+        ai_time = data.get('AI_Time', 0)
+        
         # Load old state, Sync, and Save state
         _load_state()
         battery_twin_instance.sync(data)
@@ -55,12 +60,15 @@ def receive_telemetry():
         
         twin_state = battery_twin_instance.twin_state
         
-        # Insert into DB WITH Twin data
+        # Insert into DB WITH Twin and AI data
         insert_data(
             v, i, p, energy, t, soc, soh, status,
             twin_ocv=twin_state.get('ocv', 0),
             twin_r0=twin_state.get('internal_resistance', 0),
-            twin_vp=twin_state.get('polarization_voltage', 0)
+            twin_vp=twin_state.get('polarization_voltage', 0),
+            ai_class=ai_class,
+            ai_score=ai_score,
+            ai_time=ai_time
         )
         
         # Kiểm tra xem có lệnh chờ nào không để gửi về cho ESP32

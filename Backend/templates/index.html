@@ -249,27 +249,56 @@
                 </header>
 
                 <div class="grid-3" style="margin-top: 1.5rem;">
+                    <!-- Panel 1: Model Specs -->
                     <div class="glass-panel p-4">
-                        <h3 class="section-title"><i data-lucide="cpu"></i> Model Status</h3>
-                        <div class="twin-item"><span>Execution Device</span><strong>ESP32-S3</strong></div>
-                        <div class="twin-item"><span>Model Name</span><strong>Battery Anomaly MLP</strong></div>
-                        <div class="twin-item"><span>Model Version</span><strong>1.0.3 (Quantized)</strong></div>
-                        <div class="twin-item"><span>Input Window</span><strong>30 samples</strong></div>
-                        <div class="twin-item"><span>Inference Time</span><strong id="ai-time">14 ms</strong></div>
+                        <h3 class="section-title"><i data-lucide="cpu"></i> Model Architecture</h3>
+                        <div class="twin-item"><span>Execution Node</span><strong class="text-cyan">ESP32-S3 (Edge)</strong></div>
+                        <div class="twin-item"><span>Framework</span><strong>TensorFlow Lite Micro</strong></div>
+                        <div class="twin-item"><span>Model Type</span><strong>MLP Classifier</strong></div>
+                        <div class="twin-item"><span>Quantization</span><strong>INT8</strong></div>
+                        <div class="twin-item"><span>Inference Time</span><strong id="ai-time" class="text-green">1 ms</strong></div>
                     </div>
 
+                    <!-- Panel 2: Live Inference Dashboard -->
                     <div class="glass-panel p-4" style="grid-column: span 2;">
-                        <h3 class="section-title text-purple"><i data-lucide="target"></i> Edge AI Inference Results</h3>
-                        <div class="grid-2">
-                            <div style="text-align: center; padding: 20px;">
-                                <h1 id="ai-score" style="font-size: 3rem; color: var(--emerald);">0.08</h1>
-                                <p class="text-muted">Anomaly Score</p>
-                                <p class="text-sm mt-2">Threshold: 0.70</p>
+                        <h3 class="section-title text-purple"><i data-lucide="activity"></i> Real-Time AI Inference</h3>
+                        <div class="grid-2" style="gap: 2rem;">
+                            <!-- Score Display -->
+                            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.2); border-radius: 12px; padding: 20px;">
+                                <h1 id="ai-score" style="font-size: 3.5rem; color: var(--emerald); text-shadow: 0 0 20px rgba(16,185,129,0.4); margin: 0;">0.05</h1>
+                                <p class="text-muted" style="letter-spacing: 1px; text-transform: uppercase; font-size: 0.8rem; margin-top: 5px;">Anomaly Score</p>
+                                
+                                <div style="width: 100%; background: #333; height: 6px; border-radius: 3px; margin-top: 15px; overflow: hidden;">
+                                    <div id="ai-score-bar" style="width: 5%; height: 100%; background: var(--emerald); transition: width 0.3s ease, background 0.3s ease;"></div>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; width: 100%; font-size: 0.7rem; color: #888; margin-top: 4px;">
+                                    <span>Safe (0.0)</span>
+                                    <span>Threshold: 0.70</span>
+                                    <span>Critical (1.0)</span>
+                                </div>
                             </div>
-                            <div style="display:flex; flex-direction:column; justify-content:center;">
-                                <div class="twin-item"><span>Anomaly Status</span><strong id="ai-status" class="text-green">Normal</strong></div>
-                                <div class="twin-item"><span>Detected Class</span><strong id="ai-class">Normal Operation</strong></div>
-                                <div class="twin-item"><span>Confidence</span><strong id="ai-conf">92%</strong></div>
+                            
+                            <!-- Detailed Metrics -->
+                            <div style="display:flex; flex-direction:column; justify-content:center; gap: 15px;">
+                                <div>
+                                    <span style="font-size: 0.85rem; color: var(--text-muted);">Current System Status</span>
+                                    <div style="font-size: 1.5rem; font-weight: bold;" id="ai-status" class="text-green">Normal</div>
+                                </div>
+                                
+                                <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; border-left: 4px solid var(--purple);">
+                                    <span style="font-size: 0.8rem; color: var(--text-muted);">Detected Class Label</span>
+                                    <div style="font-size: 1.1rem; font-weight: 600;" id="ai-class">Normal Operation</div>
+                                </div>
+                                
+                                <div>
+                                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px;">
+                                        <span color="var(--text-muted)">Prediction Confidence</span>
+                                        <strong id="ai-conf">98.5%</strong>
+                                    </div>
+                                    <div style="width: 100%; background: #222; height: 8px; border-radius: 4px; overflow: hidden;">
+                                        <div id="ai-conf-bar" style="width: 98.5%; height: 100%; background: linear-gradient(90deg, var(--purple), var(--cyan)); transition: width 0.3s ease;"></div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
