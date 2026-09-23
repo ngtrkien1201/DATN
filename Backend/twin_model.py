@@ -58,6 +58,11 @@ class BatteryTwin:
         self.validation = {'v_mae': 0.0, 'v_rmse': 0.0, 'v_max_err': 0.0, 'soc_mae': 0.0}
         self.error_history = {'v': [], 'soc': []}
         self.edge_ai_state = {'AI_Class': 0, 'AI_Score': 100.0, 'AI_Time': 0}
+        
+        self.cv = [0.0, 0.0, 0.0, 0.0]
+        self.csoc = [0, 0, 0, 0]
+        self.csoh = [100, 100, 100, 100]
+        self.cai_class = [0, 0, 0, 0]
 
         self.last_sync_timestamp = time.time()
         self.sync_rate = 0.0
@@ -81,6 +86,11 @@ class BatteryTwin:
             self.edge_ai_state['AI_Class'] = real_data['AI_Class']
             self.edge_ai_state['AI_Score'] = real_data.get('AI_Score', 0.0)
             self.edge_ai_state['AI_Time'] = real_data.get('AI_Time', 0)
+            
+        self.cv = real_data.get('CV', [0.0, 0.0, 0.0, 0.0])
+        self.csoc = real_data.get('CSOC', [0, 0, 0, 0])
+        self.csoh = real_data.get('CSOH', [100, 100, 100, 100])
+        self.cai_class = real_data.get('CAI_Class', [0, 0, 0, 0])
         
         # Ưu tiên lấy Power và Energy từ mạch gửi lên (JSON), nếu không có mới tự tính
         p_json = real_data.get('P')
@@ -293,6 +303,8 @@ class BatteryTwin:
     # ================================================================
     def to_dict(self):
         return {
+            'capacity_Ah': self.capacity_Ah,
+            'capacity_As': self.capacity_As,
             'R0': self.R0,
             'V_p': self.V_p,
             'internal_twin_soc': self.internal_twin_soc,
@@ -309,6 +321,8 @@ class BatteryTwin:
 
     def from_dict(self, data):
         if not data: return
+        self.capacity_Ah = data.get('capacity_Ah', self.capacity_Ah)
+        self.capacity_As = data.get('capacity_As', self.capacity_Ah * 3600)
         self.R0 = data.get('R0', self.R0)
         self.V_p = data.get('V_p', self.V_p)
         self.internal_twin_soc = data.get('internal_twin_soc', self.internal_twin_soc)
@@ -389,6 +403,8 @@ class BatteryTwin:
                 'latency_ms': self.sync_latency_ms
             },
             'model_parameters': {
+                'capacity_Ah': self.capacity_Ah,
+                'capacity_As': self.capacity_As,
                 'R0': round(self.R0, 4),
                 'R0_mOhm': round(self.R0 * 1000, 1),
                 'R1': self.R1,
@@ -406,6 +422,12 @@ class BatteryTwin:
             },
             'metadata': {
                 'twin_id': 'Battery-001'
+            },
+            'cells': {
+                'cv': self.cv,
+                'csoc': self.csoc,
+                'csoh': self.csoh,
+                'cai_class': self.cai_class
             }
         }
 

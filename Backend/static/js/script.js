@@ -172,6 +172,19 @@ async function updateTwin() {
         document.getElementById('ov-anomaly').innerText = d.edge_ai ? d.edge_ai.anomaly_class : "Normal";
         document.getElementById('ov-ascore').innerText = d.edge_ai ? d.edge_ai.anomaly_score : "0.05";
         
+        // ------------------ PAGE 1: CELLS DATA (4S) ------------------
+        if (d.cells) {
+            for (let i = 0; i < 4; i++) {
+                const c_v = d.cells.cv[i].toFixed(2);
+                const c_soc = d.cells.csoc[i];
+                const c_ai = d.cells.cai_class[i];
+                let colorClass = "text-green";
+                if (c_ai === 1 || c_ai === 2 || c_ai === 3 || c_ai === 4) colorClass = "text-red";
+                
+                document.getElementById(`ov-c${i+1}`).innerHTML = `<span class="${colorClass}">${c_v} V | ${c_soc}% | C${c_ai}</span>`;
+            }
+        }
+        
         // ------------------ PAGE 2: LIVE MONITORING ------------------
         document.getElementById('lm-v').innerHTML = `${d.real.voltage} <small>V</small>`;
         document.getElementById('lm-i').innerHTML = `${d.real.current} <small>A</small>`;
@@ -345,5 +358,27 @@ async function updateBatteryConfig() {
     } catch (e) {
         console.error("Config error:", e);
         alert("Error sending configuration.");
+    }
+}
+
+async function resetBatterySOH() {
+    if(!confirm("CẢNH BÁO: Hành động này sẽ xóa bộ nhớ Flash trên STM32 và khôi phục tuổi thọ SOH về 100%. Bạn có chắc chắn mình đã lắp 4 viên pin mới vào không?")) {
+        return;
+    }
+    
+    try {
+        const res = await fetch('/api/reset_soh', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        });
+        
+        if(res.ok) {
+            alert("Lệnh RESET SOH đã được chuyển xuống phần cứng thành công!");
+        } else {
+            alert("Lỗi khi gửi lệnh reset.");
+        }
+    } catch (e) {
+        console.error("Reset error:", e);
+        alert("Lỗi kết nối tới Server.");
     }
 }

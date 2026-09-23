@@ -53,6 +53,12 @@ def receive_telemetry():
         ai_score = data.get('AI_Score', 0.0)
         ai_time = data.get('AI_Time', 0)
         
+        # Arrays from ESP32 4S
+        cv = data.get('CV', [0.0, 0.0, 0.0, 0.0])
+        csoc = data.get('CSOC', [0, 0, 0, 0])
+        csoh = data.get('CSOH', [100, 100, 100, 100])
+        cai_class = data.get('CAI_Class', [0, 0, 0, 0])
+        
         # Load old state, Sync, and Save state
         _load_state()
         battery_twin_instance.sync(data)
@@ -68,7 +74,11 @@ def receive_telemetry():
             twin_vp=twin_state.get('polarization_voltage', 0),
             ai_class=ai_class,
             ai_score=ai_score,
-            ai_time=ai_time
+            ai_time=ai_time,
+            cv=cv,
+            csoc=csoc,
+            csoh=csoh,
+            cai_class=cai_class
         )
         
         # Kiểm tra xem có lệnh chờ nào không để gửi về cho ESP32
@@ -102,7 +112,11 @@ def get_dashboard():
         "temperature": data['temperature'],
         "soc": data['soc'],
         "soh": data['soh'],
-        "charging_status": data['status']
+        "charging_status": data['status'],
+        "cv": data.get('cv', [0.0, 0.0, 0.0, 0.0]),
+        "csoc": data.get('csoc', [0, 0, 0, 0]),
+        "csoh": data.get('csoh', [100, 100, 100, 100]),
+        "cai_class": data.get('cai_class', [0, 0, 0, 0])
     })
 
 @app.route('/api/monitor', methods=['GET'])
@@ -191,7 +205,12 @@ def send_cmd():
                 _load_state()
                 battery_twin_instance.capacity_Ah = cap
                 battery_twin_instance.capacity_As = cap * 3600
-                battery_twin_instance.remaining_capacity = round(cap * (battery_twin_instance.internal_twin_soc / 100.0), 3)
+                soc = battery_twin_instance.internal_twin_soc
+                if soc is None:
+                    latest = get_latest_data()
+                    soc = latest.get('soc', 100.0) if latest else 100.0
+                    battery_twin_instance.internal_twin_soc = soc
+                battery_twin_instance.remaining_capacity = round(cap * (soc / 100.0), 3)
                 _save_state()
             except Exception:
                 pass
@@ -206,6 +225,15 @@ def simulate_scenario():
     _load_state()
     res = battery_twin_instance.simulate_what_if(current, duration)
     return jsonify(res)
+
+@app.route('/api/reset_soh', methods=['POST'])
+def reset_soh():
+    """ Endpoint để gửi lệnh RESET_SOH tới phần cứng """
+    try:
+        save_pending_command("RESET_SOH")
+        return jsonify({"status": "success", "message": "Command RESET_SOH queued for ESP32"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "error": str(e)}), 500
 
 @app.route('/api/test', methods=['GET'])
 def test_connection():

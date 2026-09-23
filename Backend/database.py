@@ -13,7 +13,7 @@ def init_db():
     # MongoDB tự động tạo db và collection khi có dữ liệu nên không cần CREATE TABLE
     pass
 
-def insert_data(voltage, current, power, energy, temperature, soc, soh, status, twin_ocv=0.0, twin_r0=0.0, twin_vp=0.0, ai_class=0, ai_score=0.0, ai_time=0):
+def insert_data(voltage, current, power, energy, temperature, soc, soh, status, twin_ocv=0.0, twin_r0=0.0, twin_vp=0.0, ai_class=0, ai_score=0.0, ai_time=0, cv=None, csoc=None, csoh=None, cai_class=None):
     data = {
         "timestamp": datetime.utcnow().isoformat() + "Z",
         "voltage": voltage,
@@ -29,7 +29,11 @@ def insert_data(voltage, current, power, energy, temperature, soc, soh, status, 
         "twin_vp": twin_vp,
         "ai_class": ai_class,
         "ai_score": ai_score,
-        "ai_time": ai_time
+        "ai_time": ai_time,
+        "cv": cv if cv is not None else [0.0, 0.0, 0.0, 0.0],
+        "csoc": csoc if csoc is not None else [0, 0, 0, 0],
+        "csoh": csoh if csoh is not None else [100, 100, 100, 100],
+        "cai_class": cai_class if cai_class is not None else [0, 0, 0, 0]
     }
     collection.insert_one(data)
 

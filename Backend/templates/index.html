@@ -70,20 +70,21 @@
                 <div class="grid-4" style="margin-top: 1.5rem;">
                     <!-- Physical Battery -->
                     <div class="glass-panel p-4">
-                        <h3 class="section-title text-orange"><i data-lucide="battery-charging"></i> Physical Battery</h3>
-                        <div class="twin-item"><span>Voltage</span><strong id="ov-v">0.000 V</strong></div>
+                        <h3 class="section-title text-orange"><i data-lucide="battery-charging"></i> Physical Pack 4S</h3>
+                        <div class="twin-item"><span>Pack Voltage</span><strong id="ov-v">0.000 V</strong></div>
                         <div class="twin-item"><span>Current</span><strong id="ov-i">0.000 A</strong></div>
                         <div class="twin-item"><span>Temperature</span><strong id="ov-t">0.0 °C</strong></div>
                         <div class="twin-item"><span>Power</span><strong id="ov-p">0.000 W</strong></div>
-                        <div class="twin-item"><span>Energy Used</span><strong id="ov-e">0.000 Wh</strong></div>
+                        <div class="twin-item"><span>Pack SOC</span><strong id="ov-soc" class="text-green">0.0 %</strong></div>
+                        <div class="twin-item"><span>Pack SOH</span><strong id="ov-soh" class="text-blue">0.0 %</strong></div>
                     </div>
-                    <!-- Estimated States -->
+                    <!-- 4S Cells -->
                     <div class="glass-panel p-4">
-                        <h3 class="section-title text-green"><i data-lucide="bar-chart-2"></i> Estimated States</h3>
-                        <div class="twin-item"><span>Est. SOC</span><strong id="ov-soc" class="text-green">0.0 %</strong></div>
-                        <div class="twin-item"><span>Est. SOH</span><strong id="ov-soh" class="text-blue">0.0 %</strong></div>
-                        <div class="twin-item"><span>Cycle Count</span><strong id="ov-cycle">0</strong></div>
-                        <div class="twin-item"><span>Sampling Rate</span><strong>1 Hz</strong></div>
+                        <h3 class="section-title text-green"><i data-lucide="bar-chart-2"></i> Individual Cells</h3>
+                        <div class="twin-item"><span>Cell 1</span><strong id="ov-c1" class="text-green">0.00 V | 0% | C0</strong></div>
+                        <div class="twin-item"><span>Cell 2</span><strong id="ov-c2" class="text-green">0.00 V | 0% | C0</strong></div>
+                        <div class="twin-item"><span>Cell 3</span><strong id="ov-c3" class="text-green">0.00 V | 0% | C0</strong></div>
+                        <div class="twin-item"><span>Cell 4</span><strong id="ov-c4" class="text-green">0.00 V | 0% | C0</strong></div>
                     </div>
                     <!-- Digital Twin -->
                     <div class="glass-panel p-4">
@@ -450,11 +451,18 @@
                         <button class="btn-primary mt-4" onclick="updateBatteryConfig()"><i data-lucide="upload-cloud"></i> Apply Configuration</button>
                     </div>
 
-                    <!-- Placeholder for other configs -->
-                    <div class="glass-panel p-4" style="text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                        <i data-lucide="settings" style="width: 48px; height: 48px; color: var(--text-muted); opacity: 0.5; margin-bottom: 20px;"></i>
-                        <h3 class="text-muted">Other Settings</h3>
-                        <p class="text-muted mt-2 text-sm">MQTT broker settings, ESP32 OTA updates, and Anomaly Threshold tuning will be available here.</p>
+                    <!-- System Diagnostics & Maintenance -->
+                    <div class="glass-panel p-4 border-neon" style="border-color: #ff3366;">
+                        <h3 class="section-title text-orange" style="color: #ff3366;"><i data-lucide="refresh-cw"></i> System Maintenance</h3>
+                        <p class="text-sm text-muted mb-2">Diagnostic tools and hardware overrides for the Edge Devices.</p>
+                        
+                        <div class="mt-4" style="background: rgba(255,51,102,0.1); padding: 15px; border-radius: 10px; border: 1px solid rgba(255,51,102,0.3);">
+                            <h4 style="color: #ff3366; font-size: 0.95rem; margin-bottom: 5px;">Reset Battery SOH (Tuổi Thọ)</h4>
+                            <p class="text-xs text-muted" style="margin-bottom: 15px;">Warning: Click this only when you replace the physical battery cells. This will clear the STM32 Flash memory and reset SOH of all 4 cells to 100%.</p>
+                            <button class="btn-primary" style="background: linear-gradient(135deg, #ff3366, #ff6b6b); width: 100%; border: none;" onclick="resetBatterySOH()">
+                                <i data-lucide="rotate-ccw"></i> Factory Reset SOH
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
