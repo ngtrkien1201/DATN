@@ -154,23 +154,23 @@ async function updateTwin() {
         document.getElementById('gb-mode').innerText = d.real.status;
         
         // ------------------ PAGE 1: SYSTEM OVERVIEW ------------------
-        document.getElementById('ov-v').innerText = d.real.voltage + ' V';
-        document.getElementById('ov-i').innerText = d.real.current + ' A';
-        document.getElementById('ov-t').innerText = d.real.temperature + ' °C';
-        document.getElementById('ov-p').innerText = (d.real.power || (d.real.voltage * d.real.current).toFixed(3)) + ' W';
-        document.getElementById('ov-e').innerText = (d.real.energy || 0.0) + ' Wh';
+        if(document.getElementById('ov-v')) document.getElementById('ov-v').innerText = d.real.voltage + ' V';
+        if(document.getElementById('ov-i')) document.getElementById('ov-i').innerText = d.real.current + ' A';
+        if(document.getElementById('ov-t')) document.getElementById('ov-t').innerText = d.real.temperature + ' °C';
+        if(document.getElementById('ov-p')) document.getElementById('ov-p').innerText = (d.real.power || (d.real.voltage * d.real.current).toFixed(3)) + ' W';
+        if(document.getElementById('ov-e')) document.getElementById('ov-e').innerText = (d.real.energy || 0.0) + ' Wh';
         
-        document.getElementById('ov-soc').innerText = d.real.soc + ' %';
-        document.getElementById('ov-soh').innerText = d.real.soh + ' %';
-        document.getElementById('ov-cycle').innerText = d.twin.cycle_count;
+        if(document.getElementById('ov-soc')) document.getElementById('ov-soc').innerText = d.real.soc + ' %';
+        if(document.getElementById('ov-soh')) document.getElementById('ov-soh').innerText = d.real.soh + ' %';
+        if(document.getElementById('ov-cycle')) document.getElementById('ov-cycle').innerText = d.twin.cycle_count;
         
-        document.getElementById('ov-tv').innerText = d.twin.terminal_voltage + ' V';
-        document.getElementById('ov-tsoc').innerText = d.twin.soc + ' %';
-        document.getElementById('ov-err').innerText = (d.errors.voltage_mv !== undefined ? d.errors.voltage_mv : (d.errors.voltage * 1000).toFixed(1)) + ' mV';
-        document.getElementById('ov-sync').innerText = d.sync_metrics.status;
+        if(document.getElementById('ov-tv')) document.getElementById('ov-tv').innerText = d.twin.terminal_voltage + ' V';
+        if(document.getElementById('ov-tsoc')) document.getElementById('ov-tsoc').innerText = d.twin.soc + ' %';
+        if(document.getElementById('ov-err')) document.getElementById('ov-err').innerText = (d.errors.voltage_mv !== undefined ? d.errors.voltage_mv : (d.errors.voltage * 1000).toFixed(1)) + ' mV';
+        if(document.getElementById('ov-sync')) document.getElementById('ov-sync').innerText = d.sync_metrics.status;
         
-        document.getElementById('ov-anomaly').innerText = d.edge_ai ? d.edge_ai.anomaly_class : "Normal";
-        document.getElementById('ov-ascore').innerText = d.edge_ai ? d.edge_ai.anomaly_score : "0.05";
+        if(document.getElementById('ov-anomaly')) document.getElementById('ov-anomaly').innerText = d.edge_ai ? d.edge_ai.anomaly_class : "Normal";
+        if(document.getElementById('ov-ascore')) document.getElementById('ov-ascore').innerText = d.edge_ai ? d.edge_ai.anomaly_score : "0.05";
         
         // ------------------ PAGE 1: CELLS DATA (4S) ------------------
         if (d.cells) {
