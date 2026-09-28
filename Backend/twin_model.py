@@ -316,7 +316,12 @@ class BatteryTwin:
             'real_state': self.real_state,
             'twin_state': self.twin_state,
             'errors': self.errors,
-            'last_sync_timestamp': self.last_sync_timestamp
+            'last_sync_timestamp': self.last_sync_timestamp,
+            'cv': self.cv,
+            'csoc': self.csoc,
+            'csoh': self.csoh,
+            'cai_class': self.cai_class,
+            'edge_ai_state': self.edge_ai_state
         }
 
     def from_dict(self, data):
@@ -335,6 +340,11 @@ class BatteryTwin:
         self.twin_state = data.get('twin_state', self.twin_state)
         self.errors = data.get('errors', self.errors)
         self.last_sync_timestamp = data.get('last_sync_timestamp', time.time())
+        self.cv = data.get('cv', self.cv)
+        self.csoc = data.get('csoc', self.csoc)
+        self.csoh = data.get('csoh', self.csoh)
+        self.cai_class = data.get('cai_class', self.cai_class)
+        self.edge_ai_state = data.get('edge_ai_state', self.edge_ai_state)
 
     # ================================================================
     # API RESPONSE: Trả về toàn bộ trạng thái cho Dashboard
