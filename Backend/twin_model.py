@@ -6,27 +6,27 @@ import random
 # ============================================================
 # BẢNG TRA CỨU OCV-SOC (Lookup Table) cho Pin Li-ion 18650
 # ============================================================
-def interpolate_ocv(soc):
+def interpolate_ocv(soc, s_count=4):
     soc_points = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]
     ocv_points = [2.80, 3.20, 3.40, 3.48, 3.52, 3.56, 3.60, 3.63, 3.65, 3.67, 3.70, 3.73, 3.75, 3.78, 3.80, 3.85, 3.90, 3.95, 4.00, 4.10, 4.20]
-    if soc <= 0: return ocv_points[0]
-    if soc >= 100: return ocv_points[-1]
+    if soc <= 0: return ocv_points[0] * s_count
+    if soc >= 100: return ocv_points[-1] * s_count
     for i in range(len(soc_points) - 1):
         if soc_points[i] <= soc <= soc_points[i + 1]:
             x0, x1 = soc_points[i], soc_points[i + 1]
             y0, y1 = ocv_points[i], ocv_points[i + 1]
-            return y0 + (y1 - y0) * ((soc - x0) / (x1 - x0))
-    return 3.7
+            return (y0 + (y1 - y0) * ((soc - x0) / (x1 - x0))) * s_count
+    return 3.7 * s_count
 
 class BatteryTwin:
     def __init__(self):
         # 1. THÔNG SỐ VẬT LÝ CỦA MÔ HÌNH MẠCH TƯƠNG ĐƯƠNG (ECM Thevenin 1RC)
         self.capacity_Ah = 2.2 # Mặc định 2.2Ah
         self.capacity_As = self.capacity_Ah * 3600
-        self.R0_nominal = 0.045
+        self.R0_nominal = 0.045 * 4
         self.R0 = self.R0_nominal
-        self.R1 = 0.020
-        self.C1 = 500.0
+        self.R1 = 0.020 * 4
+        self.C1 = 500.0 / 4
 
         # 2. BIẾN TRẠNG THÁI CỦA MÔ HÌNH (State Variables)
         self.V_p = 0.0
