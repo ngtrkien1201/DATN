@@ -196,6 +196,12 @@ def export_csv():
         headers={"Content-disposition": "attachment; filename=hybrid_dataset.csv"}
     )
 
+@app.route('/api/clear-telemetry', methods=['GET'])
+def clear_telemetry():
+    from database import clear_all_history
+    clear_all_history()
+    return "<h1>Database Cleared Successfully!</h1><p>You can now close this tab and collect new 4S data.</p>"
+
 @app.route('/api/history', methods=['GET'])
 def get_full_history():
     history = get_history(100) 
