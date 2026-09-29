@@ -161,10 +161,14 @@ def export_csv():
     writer = csv.writer(si)
     
     # Write header
-    writer.writerow(['Timestamp', 'V_real', 'I_real', 'T_real', 'SOC_real', 'SOH_real', 'OCV_twin', 'R0_mOhm_twin', 'Vp_twin'])
+    writer.writerow(['Timestamp', 'Pack_V', 'Pack_I', 'Pack_T', 'Pack_SOC', 'Pack_SOH', 'Twin_OCV', 'Twin_R0', 'Twin_Vp', 
+                     'Cell1_V', 'Cell2_V', 'Cell3_V', 'Cell4_V', 
+                     'Cell1_SOC', 'Cell2_SOC', 'Cell3_SOC', 'Cell4_SOC'])
     
     # Write data
     for doc in docs:
+        cv = doc.get('cv', [0,0,0,0])
+        csoc = doc.get('csoc', [0,0,0,0])
         writer.writerow([
             doc.get('timestamp', ''),
             doc.get('voltage', 0),
@@ -174,7 +178,15 @@ def export_csv():
             doc.get('soh', 0),
             doc.get('twin_ocv', 0),
             doc.get('twin_r0', 0),
-            doc.get('twin_vp', 0)
+            doc.get('twin_vp', 0),
+            cv[0] if len(cv) > 0 else 0,
+            cv[1] if len(cv) > 1 else 0,
+            cv[2] if len(cv) > 2 else 0,
+            cv[3] if len(cv) > 3 else 0,
+            csoc[0] if len(csoc) > 0 else 0,
+            csoc[1] if len(csoc) > 1 else 0,
+            csoc[2] if len(csoc) > 2 else 0,
+            csoc[3] if len(csoc) > 3 else 0
         ])
     
     output = si.getvalue()
