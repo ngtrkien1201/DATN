@@ -44,7 +44,7 @@ static void ST7789_WriteData(uint8_t *buff, size_t buff_size)
 			if (DMA_MIN_SIZE <= buff_size)
 			{
 				HAL_SPI_Transmit_DMA(&ST7789_SPI_PORT, buff, chunk_size);
-				while (ST7789_SPI_PORT.hdmatx->State != HAL_DMA_STATE_READY)
+				while (HAL_SPI_GetState(&ST7789_SPI_PORT) != HAL_SPI_STATE_READY)
 				{}
 			}
 			else
@@ -203,18 +203,23 @@ void ST7789_Fill_Color(uint16_t color)
 	ST7789_Select();
 
 	#ifdef USE_DMA
+		uint16_t swapped_color = (color >> 8) | (color << 8);
+		for (int k = 0; k < sizeof(disp_buf)/2; k++) {
+			disp_buf[k] = swapped_color;
+		}
 		for (i = 0; i < ST7789_HEIGHT / HOR_LEN; i++)
 		{
-			memset(disp_buf, color, sizeof(disp_buf));
-			ST7789_WriteData(disp_buf, sizeof(disp_buf));
+			ST7789_WriteData((uint8_t*)disp_buf, sizeof(disp_buf));
 		}
 	#else
 		uint16_t j;
-		for (i = 0; i < ST7789_WIDTH; i++)
+		ST7789_DC_Set();
+		uint8_t data[] = {color >> 8, color & 0xFF};
+		for (i = 0; i < ST7789_WIDTH; i++) {
 				for (j = 0; j < ST7789_HEIGHT; j++) {
-					uint8_t data[] = {color >> 8, color & 0xFF};
-					ST7789_WriteData(data, sizeof(data));
+					HAL_SPI_Transmit(&ST7789_SPI_PORT, data, 2, HAL_MAX_DELAY);
 				}
+		}
 	#endif
 	ST7789_UnSelect();
 }
@@ -233,7 +238,8 @@ void ST7789_DrawPixel(uint16_t x, uint16_t y, uint16_t color)
 	ST7789_SetAddressWindow(x, y, x, y);
 	uint8_t data[] = {color >> 8, color & 0xFF};
 	ST7789_Select();
-	ST7789_WriteData(data, sizeof(data));
+	ST7789_DC_Set();
+	HAL_SPI_Transmit(&ST7789_SPI_PORT, data, 2, HAL_MAX_DELAY);
 	ST7789_UnSelect();
 }
 
@@ -251,11 +257,14 @@ void ST7789_Fill(uint16_t xSta, uint16_t ySta, uint16_t xEnd, uint16_t yEnd, uin
 	ST7789_Select();
 	uint16_t i, j;
 	ST7789_SetAddressWindow(xSta, ySta, xEnd, yEnd);
-	for (i = ySta; i <= yEnd; i++)
+	ST7789_Select();
+	ST7789_DC_Set();
+	uint8_t data[] = {color >> 8, color & 0xFF};
+	for (i = ySta; i <= yEnd; i++) {
 		for (j = xSta; j <= xEnd; j++) {
-			uint8_t data[] = {color >> 8, color & 0xFF};
-			ST7789_WriteData(data, sizeof(data));
+			HAL_SPI_Transmit(&ST7789_SPI_PORT, data, 2, HAL_MAX_DELAY);
 		}
+	}
 	ST7789_UnSelect();
 }
 
@@ -444,17 +453,19 @@ void ST7789_WriteChar(uint16_t x, uint16_t y, char ch, FontDef font, uint16_t co
 	uint32_t i, b, j;
 	ST7789_Select();
 	ST7789_SetAddressWindow(x, y, x + font.width - 1, y + font.height - 1);
+	ST7789_Select();
+	ST7789_DC_Set();
 
 	for (i = 0; i < font.height; i++) {
 		b = font.data[(ch - 32) * font.height + i];
 		for (j = 0; j < font.width; j++) {
 			if ((b << j) & 0x8000) {
 				uint8_t data[] = {color >> 8, color & 0xFF};
-				ST7789_WriteData(data, sizeof(data));
+				HAL_SPI_Transmit(&ST7789_SPI_PORT, data, 2, HAL_MAX_DELAY);
 			}
 			else {
 				uint8_t data[] = {bgcolor >> 8, bgcolor & 0xFF};
-				ST7789_WriteData(data, sizeof(data));
+				HAL_SPI_Transmit(&ST7789_SPI_PORT, data, 2, HAL_MAX_DELAY);
 			}
 		}
 	}
@@ -521,11 +532,8 @@ void ST7789_DrawFilledRectangle(uint16_t x, uint16_t y, uint16_t w, uint16_t h, 
 		h = ST7789_HEIGHT - y;
 	}
 
-	/* Draw lines */
-	for (i = 0; i <= h; i++) {
-		/* Draw lines */
-		ST7789_DrawLine(x, y + i, x + w, y + i, color);
-	}
+	/* Draw filled rectangle */
+	ST7789_Fill(x, y, x + w - 1, y + h - 1, color);
 	ST7789_UnSelect();
 }
 

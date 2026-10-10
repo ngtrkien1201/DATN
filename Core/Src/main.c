@@ -135,8 +135,8 @@ int main(void)
 	HAL_GPIO_WritePin(TFT_BLK_GPIO_Port, TFT_BLK_Pin, GPIO_PIN_SET); // Bật đèn nền màn hình
 	UI_InitDashboard();
 	
-	char txBuff[350];
-	char jsonBuff[200];
+	char txBuff[512];
+	char jsonBuff[256];
 	char statusStr[20];
 	
 	// Khởi động ngắt nhận UART (RX) để lắng nghe cấu hình từ bên ngoài
@@ -477,7 +477,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -676,11 +676,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
             }
         }
         
-        // Nếu bộ đệm đầy do lỗi không nhận được \n, reset để chống tràn
-        if(rxIndex >= sizeof(rxBuffer) - 1)
-        {
-            rxIndex = 0;
-        }
+        // Đã xóa cơ chế tự reset rxIndex khi tràn để tránh ghi đè dữ liệu.
+        // Chỉ lưu byte nếu còn chỗ, đợi đến khi nhận \n thì mới xử lý chuỗi bị cắt xén.
         
         // Tiếp tục lắng nghe byte tiếp theo
         HAL_UART_Receive_IT(&huart1, &rxData, 1);

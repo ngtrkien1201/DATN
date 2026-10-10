@@ -86,8 +86,8 @@ void Battery_Update(void)
         Battery.Status = BATTERY_IDLE;
     }
 
-    /* Công suất (mW -> W) */
-    Battery.Power = INA219_ReadPower(Battery.INA219) / 1000.0f;
+    /* Công suất (W) tính bằng phần mềm để giữ dấu âm khi sạc */
+    Battery.Power = Battery.Voltage * Battery.Current;
 
     /* Năng lượng (Wh), cập nhật mỗi 1 giây */
     Battery.Energy += Battery.Power / 3600.0f;

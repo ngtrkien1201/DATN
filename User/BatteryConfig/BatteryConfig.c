@@ -45,7 +45,8 @@ void BatteryConfig_Select(uint8_t id)
 {
     if (id < BATTERY_DB_SIZE)
     {
-        strcpy(BatteryConfig.Name, BatteryDatabase[id].Name);
+        strncpy(BatteryConfig.Name, BatteryDatabase[id].Name, sizeof(BatteryConfig.Name) - 1);
+        BatteryConfig.Name[sizeof(BatteryConfig.Name) - 1] = '\0';
         BatteryConfig.Capacity_Ah    = BatteryDatabase[id].Capacity_Ah;
         BatteryConfig.NominalVoltage = BatteryDatabase[id].NominalVoltage;
         BatteryConfig.MaxVoltage     = BatteryDatabase[id].MaxVoltage;
@@ -55,7 +56,8 @@ void BatteryConfig_Select(uint8_t id)
 
 void BatteryConfig_Update(char *name, float capacity, float nominal, float max, float min)
 {
-    strcpy(BatteryConfig.Name, name);
+    strncpy(BatteryConfig.Name, name, sizeof(BatteryConfig.Name) - 1);
+    BatteryConfig.Name[sizeof(BatteryConfig.Name) - 1] = '\0';
     BatteryConfig.Capacity_Ah = capacity;
     BatteryConfig.NominalVoltage = nominal;
     BatteryConfig.MaxVoltage = max;
