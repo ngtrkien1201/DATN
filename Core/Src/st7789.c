@@ -252,18 +252,30 @@ void ST7789_DrawPixel(uint16_t x, uint16_t y, uint16_t color)
  */
 void ST7789_Fill(uint16_t xSta, uint16_t ySta, uint16_t xEnd, uint16_t yEnd, uint16_t color)
 {
-	if ((xEnd < 0) || (xEnd >= ST7789_WIDTH) ||
-		 (yEnd < 0) || (yEnd >= ST7789_HEIGHT))	return;
+	if ((xEnd >= ST7789_WIDTH) || (yEnd >= ST7789_HEIGHT) || (xSta > xEnd) || (ySta > yEnd)) return;
 	ST7789_Select();
-	uint16_t i, j;
 	ST7789_SetAddressWindow(xSta, ySta, xEnd, yEnd);
 	ST7789_Select();
 	ST7789_DC_Set();
-	uint8_t data[] = {color >> 8, color & 0xFF};
-	for (i = ySta; i <= yEnd; i++) {
-		for (j = xSta; j <= xEnd; j++) {
-			HAL_SPI_Transmit(&ST7789_SPI_PORT, data, 2, HAL_MAX_DELAY);
+
+	uint32_t total_pixels = (uint32_t)(xEnd - xSta + 1) * (yEnd - ySta + 1);
+	#define FILL_CHUNK_PIXELS 64
+	static uint8_t chunk_buf[FILL_CHUNK_PIXELS * 2];
+	static uint16_t last_fill_color = 0xFFFF;
+	static uint8_t chunk_init = 0;
+	if (!chunk_init || last_fill_color != color) {
+		for (int k = 0; k < FILL_CHUNK_PIXELS; k++) {
+			chunk_buf[k * 2] = (uint8_t)(color >> 8);
+			chunk_buf[k * 2 + 1] = (uint8_t)(color & 0xFF);
 		}
+		last_fill_color = color;
+		chunk_init = 1;
+	}
+
+	while (total_pixels > 0) {
+		uint16_t cur_pixels = (total_pixels > FILL_CHUNK_PIXELS) ? FILL_CHUNK_PIXELS : (uint16_t)total_pixels;
+		HAL_SPI_Transmit(&ST7789_SPI_PORT, chunk_buf, cur_pixels * 2, HAL_MAX_DELAY);
+		total_pixels -= cur_pixels;
 	}
 	ST7789_UnSelect();
 }
@@ -450,25 +462,35 @@ void ST7789_InvertColors(uint8_t invert)
  */
 void ST7789_WriteChar(uint16_t x, uint16_t y, char ch, FontDef font, uint16_t color, uint16_t bgcolor)
 {
-	uint32_t i, b, j;
+	if ((x + font.width > ST7789_WIDTH) || (y + font.height > ST7789_HEIGHT)) return;
+
+	// Buffer chua toan bo pixel cua ky tu (Font_16x26 can toi da 16*26*2 = 832 bytes)
+	#define MAX_CHAR_BUF_BYTES (16 * 26 * 2)
+	static uint8_t char_pixel_buf[MAX_CHAR_BUF_BYTES];
+	uint32_t buf_idx = 0;
+	uint8_t col_hi = (uint8_t)(color >> 8);
+	uint8_t col_lo = (uint8_t)(color & 0xFF);
+	uint8_t bg_hi  = (uint8_t)(bgcolor >> 8);
+	uint8_t bg_lo  = (uint8_t)(bgcolor & 0xFF);
+
+	for (uint32_t i = 0; i < font.height; i++) {
+		uint32_t b = font.data[(ch - 32) * font.height + i];
+		for (uint32_t j = 0; j < font.width; j++) {
+			if ((b << j) & 0x8000) {
+				char_pixel_buf[buf_idx++] = col_hi;
+				char_pixel_buf[buf_idx++] = col_lo;
+			} else {
+				char_pixel_buf[buf_idx++] = bg_hi;
+				char_pixel_buf[buf_idx++] = bg_lo;
+			}
+		}
+	}
+
 	ST7789_Select();
 	ST7789_SetAddressWindow(x, y, x + font.width - 1, y + font.height - 1);
 	ST7789_Select();
 	ST7789_DC_Set();
-
-	for (i = 0; i < font.height; i++) {
-		b = font.data[(ch - 32) * font.height + i];
-		for (j = 0; j < font.width; j++) {
-			if ((b << j) & 0x8000) {
-				uint8_t data[] = {color >> 8, color & 0xFF};
-				HAL_SPI_Transmit(&ST7789_SPI_PORT, data, 2, HAL_MAX_DELAY);
-			}
-			else {
-				uint8_t data[] = {bgcolor >> 8, bgcolor & 0xFF};
-				HAL_SPI_Transmit(&ST7789_SPI_PORT, data, 2, HAL_MAX_DELAY);
-			}
-		}
-	}
+	HAL_SPI_Transmit(&ST7789_SPI_PORT, char_pixel_buf, buf_idx, HAL_MAX_DELAY);
 	ST7789_UnSelect();
 }
 
