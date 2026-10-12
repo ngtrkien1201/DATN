@@ -51,6 +51,7 @@ const char* AI_CLASS_NAMES[] = {
 #define PACK_OT_THRESHOLD   55.0f   // Quá nhiệt Pack (T > 55.0°C)
 #define CELL_IMBALANCE_MAX  0.35f   // Độ lệch áp tối đa giữa các cell (350mV)
 
+WiFiClientSecure secureClient;
 unsigned long lastWifiCheck = 0;
 unsigned long lastWaitingMsg = 0;
 
@@ -119,6 +120,7 @@ void setup()
     }
     
     Serial.println("-> Edge AI Model sẵn sàng!");
+    secureClient.setInsecure(); // Tắt kiểm tra SSL cert để tăng tốc và ổn định
     setup_wifi();
 }
 
@@ -304,12 +306,10 @@ void processBatteryTelemetry(String jsonString)
     // BƯỚC 3: ĐẨY DỮ LIỆU LÊN VERCEL SERVER QUA HTTPS POST
     // ============================================================
     if (WiFi.status() == WL_CONNECTED) {
-        WiFiClientSecure secureClient;
-        secureClient.setInsecure(); // Bỏ qua kiểm tra CA cert để kết nối ổn định tới HTTPS
-
         HTTPClient http;
         http.begin(secureClient, serverUrl);
         http.addHeader("Content-Type", "application/json");
+        http.setReuse(true);   // Tái sử dụng kết nối TLS giúp giảm thời gian handshake
         http.setTimeout(4000); // Timeout 4 giây
         
         int httpResponseCode = http.POST(updatedJsonString);
@@ -354,7 +354,8 @@ void loop()
     }
 
     // Đọc dữ liệu từ STM32 qua UART
-    if (Serial1.available()) 
+    bool packetProcessed = false;
+    while (Serial1.available()) 
     {
         String line = Serial1.readStringUntil('\n');
         line.trim();
@@ -370,6 +371,8 @@ void loop()
 
                 if (jsonString.startsWith("{") && jsonString.endsWith("}")) {
                     processBatteryTelemetry(jsonString);
+                    packetProcessed = true;
+                    break; // Thoát vòng lặp đọc sau khi đã xử lý xong 1 gói telemetry
                 } else {
                     Serial.println("-> [UART] Gói JSON bị cắt xén hoặc sai định dạng: " + jsonString);
                 }
@@ -381,7 +384,8 @@ void loop()
             }
         }
     }
-    else 
+
+    if (!packetProcessed && !Serial1.available()) 
     {
         // Thông báo trạng thái mỗi 5 giây nếu chưa nhận được tín hiệu UART từ STM32
         if (millis() - lastWaitingMsg > 5000) {

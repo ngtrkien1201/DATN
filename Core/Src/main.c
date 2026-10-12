@@ -135,9 +135,9 @@ int main(void)
 	HAL_GPIO_WritePin(TFT_BLK_GPIO_Port, TFT_BLK_Pin, GPIO_PIN_SET); // Bật đèn nền màn hình
 	UI_InitDashboard();
 	
-	char txBuff[512];
-	char jsonBuff[256];
-	char statusStr[20];
+	static char txBuff[512];
+	static char jsonBuff[256];
+	static char statusStr[20];
 	
 	// Khởi động ngắt nhận UART (RX) để lắng nghe cấu hình từ bên ngoài
 	HAL_UART_Receive_IT(&huart1, &rxData, 1);

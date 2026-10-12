@@ -66,7 +66,7 @@ void BatteryConfig_Update(char *name, float capacity, float nominal, float max, 
 
 void BatteryConfig_Print(UART_HandleTypeDef *huart)
 {
-    char tx[200];
+    static char tx[200];
 
     sprintf(tx,
     "\r\n========== Battery Config ==========\r\n"
