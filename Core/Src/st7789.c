@@ -198,30 +198,7 @@ void ST7789_Init(void)
  */
 void ST7789_Fill_Color(uint16_t color)
 {
-	uint16_t i;
-	ST7789_SetAddressWindow(0, 0, ST7789_WIDTH - 1, ST7789_HEIGHT - 1);
-	ST7789_Select();
-
-	#ifdef USE_DMA
-		uint16_t swapped_color = (color >> 8) | (color << 8);
-		for (int k = 0; k < sizeof(disp_buf)/2; k++) {
-			disp_buf[k] = swapped_color;
-		}
-		for (i = 0; i < ST7789_HEIGHT / HOR_LEN; i++)
-		{
-			ST7789_WriteData((uint8_t*)disp_buf, sizeof(disp_buf));
-		}
-	#else
-		uint16_t j;
-		ST7789_DC_Set();
-		uint8_t data[] = {color >> 8, color & 0xFF};
-		for (i = 0; i < ST7789_WIDTH; i++) {
-				for (j = 0; j < ST7789_HEIGHT; j++) {
-					HAL_SPI_Transmit(&ST7789_SPI_PORT, data, 2, HAL_MAX_DELAY);
-				}
-		}
-	#endif
-	ST7789_UnSelect();
+	ST7789_Fill(0, 0, ST7789_WIDTH - 1, ST7789_HEIGHT - 1, color);
 }
 
 /**
