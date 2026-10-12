@@ -1,16 +1,24 @@
 import os
+import logging
 from datetime import datetime
 from pymongo import MongoClient
+from pymongo.errors import PyMongoError, ServerSelectionTimeoutError
 
 # Dùng biến môi trường MONGO_URI trên Vercel, nếu không có thì chạy local (dành cho test)
 MONGO_URI = os.environ.get('MONGO_URI', 'mongodb://localhost:27017/')
-client = MongoClient(MONGO_URI)
+
+# Đặt timeout ngắn (2000ms) để nếu MongoDB không kết nối được thì Serverless không bị treo quá lâu
+client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=2000)
 db = client['battery_digital_twin']
 collection = db['battery_data']
-twin_state_collection = db['twin_state'] # Dùng để lưu trạng thái Digital Twin giữa các lần request
+twin_state_collection = db['twin_state']
+
+# Bộ nhớ tạm in-memory dự phòng (Fallback nếu MongoDB mất kết nối hoặc chưa cấu hình biến môi trường trên Vercel)
+_in_memory_history = []
+_in_memory_twin_state = {}
+_in_memory_pending_commands = []
 
 def init_db():
-    # MongoDB tự động tạo db và collection khi có dữ liệu nên không cần CREATE TABLE
     pass
 
 def insert_data(voltage, current, power, energy, temperature, soc, soh, status, twin_ocv=0.0, twin_r0=0.0, twin_vp=0.0, ai_class=0, ai_score=0.0, ai_time=0, cv=None, csoc=None, csoh=None, cai_class=None):
@@ -35,61 +43,107 @@ def insert_data(voltage, current, power, energy, temperature, soc, soh, status, 
         "csoh": csoh if csoh is not None else [100, 100, 100, 100],
         "cai_class": cai_class if cai_class is not None else [0, 0, 0, 0]
     }
-    collection.insert_one(data)
+    
+    # Lưu vào in-memory cache dự phòng trước
+    _in_memory_history.append(data.copy())
+    if len(_in_memory_history) > 100:
+        _in_memory_history.pop(0)
+
+    try:
+        collection.insert_one(data)
+    except Exception as e:
+        logging.warning("MongoDB insert error (dùng fallback in-memory): %s", e)
 
 def get_latest_data():
-    # Lấy document mới nhất dựa trên object ID (được tạo tăng dần theo thời gian)
-    doc = collection.find_one(sort=[('_id', -1)])
-    if doc:
-        doc['_id'] = str(doc['_id'])
-    return doc
+    try:
+        doc = collection.find_one(sort=[('_id', -1)])
+        if doc:
+            doc['_id'] = str(doc['_id'])
+            return doc
+    except Exception as e:
+        logging.warning("MongoDB get_latest_data error: %s", e)
 
-def get_history(limit=50):
-    # Lấy history cũ nhất để vẽ biểu đồ (sort tăng dần)
-    # Tuy nhiên, để lấy N phần tử gần nhất thì phải sort giảm dần rồi reverse, hoặc sort giảm dần lấy limit rồi reverse
-    docs = list(collection.find().sort('_id', -1).limit(limit))
-    docs.reverse()
-    for doc in docs:
-         doc['_id'] = str(doc['_id'])
-    return docs
-
-def get_all_history():
-    # Lấy toàn bộ dữ liệu lịch sử tăng dần theo thời gian
-    docs = list(collection.find().sort('_id', 1))
-    for doc in docs:
-         doc['_id'] = str(doc['_id'])
-    return docs
-
-def clear_all_history():
-    # Xoá toàn bộ dữ liệu lịch sử
-    collection.delete_many({})
-    return True
-
-def save_twin_state(state_dict):
-    """ Lưu trạng thái Digital Twin vào DB (Vercel cần cái này vì RAM bị xóa sau mỗi request) """
-    twin_state_collection.replace_one({"_id": "current_state"}, {"_id": "current_state", "state": state_dict}, upsert=True)
-
-def load_twin_state():
-    """ Tải lại trạng thái """
-    doc = twin_state_collection.find_one({"_id": "current_state"})
-    if doc and "state" in doc:
-        return doc["state"]
+    # Fallback in-memory
+    if _in_memory_history:
+        return _in_memory_history[-1]
     return None
 
+def get_history(limit=50):
+    try:
+        docs = list(collection.find().sort('_id', -1).limit(limit))
+        docs.reverse()
+        for doc in docs:
+            doc['_id'] = str(doc['_id'])
+        if docs:
+            return docs
+    except Exception as e:
+        logging.warning("MongoDB get_history error: %s", e)
+
+    # Fallback in-memory
+    return _in_memory_history[-limit:]
+
+def get_all_history():
+    try:
+        docs = list(collection.find().sort('_id', 1))
+        for doc in docs:
+            doc['_id'] = str(doc['_id'])
+        if docs:
+            return docs
+    except Exception as e:
+        logging.warning("MongoDB get_all_history error: %s", e)
+
+    # Fallback in-memory
+    return _in_memory_history
+
+def clear_all_history():
+    global _in_memory_history
+    _in_memory_history = []
+    try:
+        collection.delete_many({})
+        return True
+    except Exception as e:
+        logging.warning("MongoDB clear_all_history error: %s", e)
+        return False
+
+def save_twin_state(state_dict):
+    global _in_memory_twin_state
+    _in_memory_twin_state = state_dict.copy()
+    try:
+        twin_state_collection.replace_one({"_id": "current_state"}, {"_id": "current_state", "state": state_dict}, upsert=True)
+    except Exception as e:
+        logging.warning("MongoDB save_twin_state error: %s", e)
+
+def load_twin_state():
+    try:
+        doc = twin_state_collection.find_one({"_id": "current_state"})
+        if doc and "state" in doc:
+            return doc["state"]
+    except Exception as e:
+        logging.warning("MongoDB load_twin_state error: %s", e)
+
+    return _in_memory_twin_state if _in_memory_twin_state else None
+
 def save_pending_command(command_str):
-    """ Lưu một lệnh chờ xuống DB để ESP32 lấy """
-    db['pending_commands'].insert_one({
-        "command": command_str,
-        "timestamp": datetime.utcnow()
-    })
+    _in_memory_pending_commands.append(command_str)
+    try:
+        db['pending_commands'].insert_one({
+            "command": command_str,
+            "timestamp": datetime.utcnow()
+        })
+    except Exception as e:
+        logging.warning("MongoDB save_pending_command error: %s", e)
 
 def pop_pending_command():
-    """ Lấy ra lệnh chờ cũ nhất và xóa nó (FIFO) """
-    # Tìm lệnh cũ nhất
-    doc = db['pending_commands'].find_one_and_delete(
-        {}, 
-        sort=[("timestamp", 1)]
-    )
-    if doc:
-        return doc.get("command")
+    try:
+        doc = db['pending_commands'].find_one_and_delete(
+            {}, 
+            sort=[("timestamp", 1)]
+        )
+        if doc:
+            return doc.get("command")
+    except Exception as e:
+        logging.warning("MongoDB pop_pending_command error: %s", e)
+
+    if _in_memory_pending_commands:
+        return _in_memory_pending_commands.pop(0)
     return None

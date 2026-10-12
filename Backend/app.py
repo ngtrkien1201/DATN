@@ -8,7 +8,12 @@ from database import init_db, get_latest_data, get_history, get_all_history, ins
 from twin_model import battery_twin_instance
 import random
 
-app = Flask(__name__)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+app = Flask(
+    __name__,
+    template_folder=os.path.join(BASE_DIR, 'templates'),
+    static_folder=os.path.join(BASE_DIR, 'static')
+)
 CORS(app) # Cho phép React/Web gọi API
 
 # Khởi tạo DB
