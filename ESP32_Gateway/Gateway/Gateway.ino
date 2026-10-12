@@ -52,6 +52,7 @@ const char* AI_CLASS_NAMES[] = {
 #define CELL_IMBALANCE_MAX  0.35f   // Độ lệch áp tối đa giữa các cell (350mV)
 
 unsigned long lastWifiCheck = 0;
+unsigned long lastWaitingMsg = 0;
 
 void setup_wifi() 
 {
@@ -358,18 +359,34 @@ void loop()
         String line = Serial1.readStringUntil('\n');
         line.trim();
 
-        // Kiểm tra xem dòng nhận được có chứa gói JSON không
-        int jsonIndex = line.indexOf("JSON:");
-        if (jsonIndex >= 0) 
+        if (line.length() > 0) 
         {
-            String jsonString = line.substring(jsonIndex + 5);
-            jsonString.trim();
+            // Kiểm tra xem dòng nhận được có chứa gói JSON không
+            int jsonIndex = line.indexOf("JSON:");
+            if (jsonIndex >= 0) 
+            {
+                String jsonString = line.substring(jsonIndex + 5);
+                jsonString.trim();
 
-            if (jsonString.startsWith("{") && jsonString.endsWith("}")) {
-                processBatteryTelemetry(jsonString);
-            } else {
-                Serial.println("-> [UART] Gói JSON bị cắt xén hoặc sai định dạng: " + jsonString);
+                if (jsonString.startsWith("{") && jsonString.endsWith("}")) {
+                    processBatteryTelemetry(jsonString);
+                } else {
+                    Serial.println("-> [UART] Gói JSON bị cắt xén hoặc sai định dạng: " + jsonString);
+                }
+            } 
+            else if (line.indexOf("Pack Vol:") >= 0 || line.indexOf("Battery") >= 0) 
+            {
+                // In ra khi nhận được các dòng text debug từ STM32
+                Serial.println("-> [STM32 Debug]: " + line);
             }
+        }
+    }
+    else 
+    {
+        // Thông báo trạng thái mỗi 5 giây nếu chưa nhận được tín hiệu UART từ STM32
+        if (millis() - lastWaitingMsg > 5000) {
+            lastWaitingMsg = millis();
+            Serial.printf("-> [ESP32] Đang chờ UART từ STM32 (Chân RX: GPIO %d, TX: GPIO %d, Baud: %d)...\n", RX_PIN, TX_PIN, UART_BAUD);
         }
     }
 }
