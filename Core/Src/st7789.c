@@ -136,11 +136,12 @@ void ST7789_Init(void)
 	#ifdef USE_DMA
 		memset(disp_buf, 0, sizeof(disp_buf));
 	#endif
-	HAL_Delay(10);
+	// Chờ nguồn điện áp 3.3V ổn định khi cắm nguồn từ bên ngoài (Cold Boot)
+	HAL_Delay(150);
     ST7789_RST_Clr();
-    HAL_Delay(10);
-    ST7789_RST_Set();
     HAL_Delay(20);
+    ST7789_RST_Set();
+    HAL_Delay(150);
 
     ST7789_WriteCommand(ST7789_COLMOD);		//	Set color mode
     ST7789_WriteSmallData(ST7789_COLOR_MODE_16bit);
@@ -184,11 +185,13 @@ void ST7789_Init(void)
 	}
     ST7789_WriteCommand (ST7789_INVON);		//	Inversion ON
 	ST7789_WriteCommand (ST7789_SLPOUT);	//	Out of sleep mode
+	HAL_Delay(120);							//	Bắt buộc chờ 120ms để mạch Charge Pump bên trong LCD dâng đủ áp
   	ST7789_WriteCommand (ST7789_NORON);		//	Normal Display on
   	ST7789_WriteCommand (ST7789_DISPON);	//	Main screen turned on	
-
 	HAL_Delay(50);
-	ST7789_Fill_Color(BLACK);				//	Fill with Black.
+
+	ST7789_Fill_Color(BLACK);				//	Xóa sạch toàn bộ màn hình thành màu đen
+	HAL_Delay(50);
 }
 
 /**
