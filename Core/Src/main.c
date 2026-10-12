@@ -67,6 +67,9 @@ uint8_t rxData;
 char rxBuffer[50];
 uint8_t rxIndex = 0;
 uint16_t adc_buffer[5]; // [0]=Temp, [1]=V1, [2]=V2, [3]=V3, [4]=V4
+static char txBuff[512];
+static char jsonBuff[256];
+static char statusStr[20];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -135,10 +138,6 @@ int main(void)
 	HAL_GPIO_WritePin(TFT_BLK_GPIO_Port, TFT_BLK_Pin, GPIO_PIN_SET); // Bật đèn nền màn hình
 	HAL_Delay(50);
 	UI_InitDashboard();
-	
-	static char txBuff[512];
-	static char jsonBuff[256];
-	static char statusStr[20];
 	
 	// Khởi động ngắt nhận UART (RX) để lắng nghe cấu hình từ bên ngoài
 	HAL_UART_Receive_IT(&huart1, &rxData, 1);
