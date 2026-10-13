@@ -368,7 +368,8 @@ class BatteryTwin:
             1: "Over-voltage",
             2: "Under-voltage",
             3: "Over-current",
-            4: "Over-heat"
+            4: "Over-heat",
+            5: "Cell Imbalance"
         }
         
         class_name = AI_CLASS_MAP.get(ai_class_idx, f"Unknown Class {ai_class_idx}")
@@ -381,8 +382,9 @@ class BatteryTwin:
             anomaly_score = round(ai_confidence / 100.0, 3)
             ai_status_str = "Warning" if anomaly_score < 0.8 else "Alert"
             
-        # Nếu chưa nhận được dữ liệu AI bao giờ thì báo Waiting
-        has_ai_data = self.edge_ai_state.get('AI_Time', 0) > 0
+        # Nếu chưa nhận được dữ liệu AI bao giờ, hoặc đã mất kết nối thì báo Waiting
+        has_ai_data = (self.edge_ai_state.get('AI_Time', 0) > 0
+                       and self.sync_status != "Disconnected")
         ai_run_status = "Running (ESP32-S3)" if has_ai_data else "Waiting for Data"
 
         return {

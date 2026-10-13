@@ -41,7 +41,8 @@ const char* AI_CLASS_NAMES[] = {
     "Over-voltage",
     "Under-voltage",
     "Over-current",
-    "Over-heat"
+    "Over-heat",
+    "Cell Imbalance"   // Class 5: Mất cân bằng áp giữa các cell
 };
 
 // Cấu hình ngưỡng bảo vệ vật lý an toàn (Safety Guardrails) cho Pack 4S
@@ -146,6 +147,15 @@ void processBatteryTelemetry(String jsonString)
     float T      = doc["T"] | 0.0f;
     int pack_soc = doc["SOC"] | 0;
     int pack_soh = doc["SOH"] | 100;
+
+    // === KIỂM TRA PIN ĐÃ LẮP CHƯA ===
+    // Nếu Pack Voltage < 1.0V → STM32 đang chạy bằng USB nhưng chưa lắp pin
+    // Bỏ qua AI inference để tránh báo Under-voltage giả
+    if (pack_v < 1.0f) {
+        Serial.println("-> [GATEWAY] Chưa lắp pin (Pack V < 1.0V). Bỏ qua AI & HTTP POST.");
+        return;
+    }
+    // ===================================
 
     // Trích xuất mảng điện áp (CV) và SOC (CSOC) của 4 Cell
     JsonArray cv = doc["CV"];
@@ -254,10 +264,17 @@ void processBatteryTelemetry(String jsonString)
         pack_ai_score = normal_count > 0 ? (sum_conf_normal / normal_count) : 98.5f;
     }
 
-    // Cảnh báo nếu Pack bị mất cân bằng (Cell Imbalance)
+    // Cảnh báo và gán class nếu Pack bị mất cân bằng (Cell Imbalance)
+    // Chỉ áp dụng khi chưa có lỗi nghiêm trọng hơn (OV/UV/OC/OT)
     float cell_imbalance = max_cell_v - min_cell_v;
     if (cell_imbalance > CELL_IMBALANCE_MAX) {
         Serial.printf("-> [CẢNH BÁO 4S] Độ lệch cell quá lớn: %.3f V!\n", cell_imbalance);
+        if (worst_anomaly_class == 0) {
+            // Không có lỗi nào khác nghiêm trọng hơn → gán Imbalance
+            pack_ai_class = 5;
+            // Confidence tỉ lệ với mức độ lệch: 350mV → 50%, 700mV → 100%
+            pack_ai_score = fminf(99.5f, 50.0f + (cell_imbalance - CELL_IMBALANCE_MAX) / CELL_IMBALANCE_MAX * 50.0f);
+        }
     }
 
     // Gán dữ liệu AI tổng hợp vào gói JSON cho Web/Digital Twin

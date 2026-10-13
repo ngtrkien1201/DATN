@@ -43,6 +43,16 @@ for _ in range(150):
     X.append([random.uniform(3.0, 4.2), random.uniform(1.0, 2.0), random.uniform(46.0, 65.0), random.uniform(10, 90)])
     y.append(4)
 
+# Class 5: Cell Imbalance (Mất cân bằng áp giữa các cell)
+# Một cell có điện áp lệch nhiều so với phần còn lại
+# Mô phỏng bằng 1 cell có V thấp bất thường (2.8-3.2V) trong khi pack bình thường
+for _ in range(150):
+    # Cell bị yếu: V thấp hơn, SOC thấp hơn nhiều
+    weak_v   = random.uniform(2.80, 3.20)
+    weak_soc = random.uniform(0, 25)
+    X.append([weak_v, random.uniform(-0.5, 0.5), random.uniform(20.0, 40.0), weak_soc])
+    y.append(5)
+
 X = np.array(X)
 y = np.array(y)
 

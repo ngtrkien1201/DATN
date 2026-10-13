@@ -162,7 +162,7 @@ void UI_InitDashboard(void)
     ST7789_DrawFilledRectangle(4, 199, 190, 39, EV_PANEL_BG);
     ST7789_DrawRectangle(4, 199, 193, 237, EV_PANEL_BORDER);
     ST7789_WriteString(10, 204, "SENTINEL AI:", Font_7x10, EV_CYAN, EV_PANEL_BG);
-    ST7789_WriteString(10, 220, "CONF: 99.5% | SAFE", Font_7x10, EV_GRAY, EV_PANEL_BG);
+    // Dòng CONF sẽ được vẽ động bởi UI_UpdateDashboard
 
     // 5.2 Khung Odometer
     ST7789_DrawFilledRectangle(198, 199, 118, 39, EV_PANEL_BG);
@@ -267,48 +267,62 @@ void UI_UpdateDashboard(void)
     // --------------------------------------------------------
     // BƯỚC 4: CỘT PHẢI - THỂ SONG SINH SỐ DIGITAL TWIN (1RC ECM)
     // --------------------------------------------------------
-    // Giải phương trình vi phân mô hình Thevenin 1RC
-    float exp_factor = 0.9231f; // exp(-1.0 / 12.5)
-    dt_Vp = dt_Vp * exp_factor + Battery.Current * dt_R1 * (1.0f - exp_factor);
+    uint8_t battery_connected = (Battery.Voltage > 1.0f);
 
-    float dt_ocv = (3.20f + (Battery.SOC / 100.0f) * 1.00f) * 4.0f;
-    dt_Vest = dt_ocv + Battery.Current * dt_R0 + dt_Vp;
+    if (battery_connected) {
+        // Giải phương trình vi phân mô hình Thevenin 1RC
+        float exp_factor = 0.9231f; // exp(-1.0 / 12.5)
+        dt_Vp = dt_Vp * exp_factor + Battery.Current * dt_R1 * (1.0f - exp_factor);
 
-    float err_v = fabsf(Battery.Voltage - dt_Vest);
-    if (Battery.Voltage > 1.0f) {
+        float dt_ocv = (3.20f + (Battery.SOC / 100.0f) * 1.00f) * 4.0f;
+        dt_Vest = dt_ocv + Battery.Current * dt_R0 + dt_Vp;
+
+        float err_v = fabsf(Battery.Voltage - dt_Vest);
         dt_accuracy = 100.0f - (err_v / Battery.Voltage * 100.0f);
+        if (dt_accuracy > 99.9f) dt_accuracy = 99.8f;
+        if (dt_accuracy < 80.0f) dt_accuracy = 85.0f;
+
+        // Điện áp mô phỏng Digital Twin cỡ lớn
+        if (fabsf(dt_Vest - last_dt_vest) >= 0.02f || force_redraw) {
+            last_dt_vest = dt_Vest;
+            sprintf(buf, "%5.2fV", dt_Vest);
+            ST7789_WriteString(226, 44, buf, Font_11x18, EV_CYAN, EV_PANEL_BG);
+        }
+
+        // Độ chính xác mô hình
+        if (fabsf(dt_accuracy - last_dt_acc) >= 0.2f || force_redraw) {
+            last_dt_acc = dt_accuracy;
+            sprintf(buf, "%4.1f%%", dt_accuracy);
+            ST7789_WriteString(258, 82, buf, Font_7x10, EV_GREEN, EV_PANEL_BG);
+        }
+
+        // SOH
+        if (Battery.SOH != last_soh || force_redraw) {
+            last_soh = Battery.SOH;
+            sprintf(buf, "%3d%%", Battery.SOH);
+            uint16_t soh_col = (Battery.SOH > 80) ? EV_GREEN : EV_ORANGE;
+            ST7789_WriteString(258, 96, buf, Font_7x10, soh_col, EV_PANEL_BG);
+        }
+
+        // Nội trở R0 của mô hình số
+        if (force_redraw) {
+            sprintf(buf, "%3.0fmR", dt_R0 * 1000.0f);
+            ST7789_WriteString(258, 110, buf, Font_7x10, EV_WHITE, EV_PANEL_BG);
+        }
     } else {
-        dt_accuracy = 99.4f;
-    }
-    if (dt_accuracy > 99.9f) dt_accuracy = 99.8f;
-    if (dt_accuracy < 80.0f) dt_accuracy = 85.0f;
-
-    // Điện áp mô phỏng Digital Twin cỡ lớn
-    if (fabsf(dt_Vest - last_dt_vest) >= 0.02f || force_redraw) {
-        last_dt_vest = dt_Vest;
-        sprintf(buf, "%5.2fV", dt_Vest);
-        ST7789_WriteString(226, 44, buf, Font_11x18, EV_CYAN, EV_PANEL_BG);
-    }
-
-    // Độ chính xác mô hình
-    if (fabsf(dt_accuracy - last_dt_acc) >= 0.2f || force_redraw) {
-        last_dt_acc = dt_accuracy;
-        sprintf(buf, "%4.1f%%", dt_accuracy);
-        ST7789_WriteString(258, 82, buf, Font_7x10, EV_GREEN, EV_PANEL_BG);
-    }
-
-    // SOH
-    if (Battery.SOH != last_soh || force_redraw) {
-        last_soh = Battery.SOH;
-        sprintf(buf, "%3d%%", Battery.SOH);
-        uint16_t soh_col = (Battery.SOH > 80) ? EV_GREEN : EV_ORANGE;
-        ST7789_WriteString(258, 96, buf, Font_7x10, soh_col, EV_PANEL_BG);
-    }
-
-    // Nội trở R0 của mô hình số
-    if (force_redraw) {
-        sprintf(buf, "%3.0fmR", dt_R0 * 1000.0f);
-        ST7789_WriteString(258, 110, buf, Font_7x10, EV_WHITE, EV_PANEL_BG);
+        // Chưa cắm pin — reset cache và hiển thị "--"
+        if (last_dt_vest != -999.0f || force_redraw) {
+            last_dt_vest  = -999.0f;
+            last_dt_acc   = -999.0f;
+            last_soh      = 255;
+            dt_Vp         = 0.0f;
+            dt_Vest       = 0.0f;
+            dt_accuracy   = 0.0f;
+            ST7789_WriteString(226, 44, "-- --V", Font_11x18, EV_MUTED, EV_PANEL_BG);
+            ST7789_WriteString(258, 82, " -- %", Font_7x10,  EV_MUTED, EV_PANEL_BG);
+            ST7789_WriteString(258, 96, " -- %", Font_7x10,  EV_MUTED, EV_PANEL_BG);
+            ST7789_WriteString(258, 110, " ---mR", Font_7x10, EV_MUTED, EV_PANEL_BG);
+        }
     }
 
     // --------------------------------------------------------
@@ -360,7 +374,11 @@ void UI_UpdateDashboard(void)
     const char *ai_name = "NORMAL ";
     uint16_t ai_col = EV_GREEN;
 
-    if (max_cv > 4.25f) {
+    if (!battery_connected) {
+        current_ai_class = -1;
+        ai_name = "NO BAT ";
+        ai_col = EV_MUTED;
+    } else if (max_cv > 4.25f) {
         current_ai_class = 1;
         ai_name = "OVER-V ";
         ai_col = EV_RED;
@@ -386,6 +404,15 @@ void UI_UpdateDashboard(void)
         last_ai_class = current_ai_class;
         sprintf(buf, "[%s]", ai_name);
         ST7789_WriteString(94, 204, buf, Font_7x10, ai_col, EV_PANEL_BG);
+
+        // Cập nhật dòng CONF bên dưới theo trạng thái pin
+        if (!battery_connected) {
+            ST7789_WriteString(10, 220, "CONF: -- | NO BAT ", Font_7x10, EV_MUTED, EV_PANEL_BG);
+        } else if (current_ai_class == 0) {
+            ST7789_WriteString(10, 220, "CONF: 99.5% | SAFE", Font_7x10, EV_GREEN, EV_PANEL_BG);
+        } else {
+            ST7789_WriteString(10, 220, "CONF: 99.5% | WARN", Font_7x10, EV_ORANGE, EV_PANEL_BG);
+        }
     }
 
     // Odometer & Chu kỳ
