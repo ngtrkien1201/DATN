@@ -160,20 +160,58 @@ def export_csv():
     import io
     import csv
     docs = get_all_history()
-    
-    # Create an in-memory string buffer
+
+    # Map AI class số → tên nhãn (để train model)
+    AI_LABEL_MAP = {
+        0: 'Normal',
+        1: 'Over-voltage',
+        2: 'Under-voltage',
+        3: 'Over-current',
+        4: 'Over-heat',
+        5: 'Cell-Imbalance'
+    }
+
     si = io.StringIO()
     writer = csv.writer(si)
-    
-    # Write header
-    writer.writerow(['Timestamp', 'Pack_V', 'Pack_I', 'Pack_T', 'Pack_SOC', 'Pack_SOH', 'Twin_OCV', 'Twin_R0', 'Twin_Vp', 
-                     'Cell1_V', 'Cell2_V', 'Cell3_V', 'Cell4_V', 
-                     'Cell1_SOC', 'Cell2_SOC', 'Cell3_SOC', 'Cell4_SOC'])
-    
-    # Write data
+
+    # Header — bao gồm cột Label để train AI pack-level 4S
+    writer.writerow([
+        'Timestamp',
+        'Pack_V', 'Pack_I', 'Pack_T', 'Pack_SOC', 'Pack_SOH',
+        'Twin_OCV', 'Twin_R0', 'Twin_Vp',
+        'Cell1_V', 'Cell2_V', 'Cell3_V', 'Cell4_V',
+        'Cell1_SOC', 'Cell2_SOC', 'Cell3_SOC', 'Cell4_SOC',
+        'Label'   # ← Nhãn AI tự động gán theo ai_class lưu trong DB
+    ])
+
     for doc in docs:
-        cv = doc.get('cv', [0,0,0,0])
-        csoc = doc.get('csoc', [0,0,0,0])
+        cv   = doc.get('cv',   [0, 0, 0, 0])
+        csoc = doc.get('csoc', [0, 0, 0, 0])
+        ai_class = doc.get('ai_class', 0)
+        
+        # Tự động gán nhãn chính xác dựa trên ngưỡng vật lý thực tế (hoặc ai_class đã lưu)
+        max_v   = max(cv) if cv else 0.0
+        min_v   = min(cv) if cv else 0.0
+        delta_v = max_v - min_v if cv else 0.0
+        curr    = abs(doc.get('current', 0.0))
+        temp    = doc.get('temperature', 0.0)
+        pack_v  = doc.get('voltage', 0.0)
+
+        if doc.get('label'):
+            label = doc.get('label')
+        elif max_v > 4.25:
+            label = 'Over-voltage'
+        elif min_v < 2.80 and pack_v > 1.0:
+            label = 'Under-voltage'
+        elif curr > 3.0:
+            label = 'Over-current'
+        elif temp > 55.0:
+            label = 'Over-heat'
+        elif delta_v > 0.35 and pack_v > 1.0:
+            label = 'Cell-Imbalance'
+        else:
+            label = AI_LABEL_MAP.get(int(ai_class), 'Normal')
+
         writer.writerow([
             doc.get('timestamp', ''),
             doc.get('voltage', 0),
@@ -191,15 +229,17 @@ def export_csv():
             csoc[0] if len(csoc) > 0 else 0,
             csoc[1] if len(csoc) > 1 else 0,
             csoc[2] if len(csoc) > 2 else 0,
-            csoc[3] if len(csoc) > 3 else 0
+            csoc[3] if len(csoc) > 3 else 0,
+            label
         ])
-    
+
     output = si.getvalue()
     return Response(
         output,
         mimetype="text/csv",
-        headers={"Content-disposition": "attachment; filename=hybrid_dataset.csv"}
+        headers={"Content-disposition": "attachment; filename=battery_dataset_4s.csv"}
     )
+
 
 @app.route('/api/clear-telemetry', methods=['GET'])
 def clear_telemetry():

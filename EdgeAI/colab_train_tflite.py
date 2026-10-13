@@ -10,109 +10,125 @@ import os
 
 # ==============================================================================
 # HƯỚNG DẪN: SỬ DỤNG TRÊN GOOGLE COLAB
-# 1. Tải file CSV của bạn lên Google Colab
-# 2. File CSV cần có các cột: V real, I real, T real, SOC real, Label
-# 3. Chạy đoạn code này để Train và xuất ra mảng byte C++ cho ESP32.
+# 1. Export CSV từ: https://datn-mauve.vercel.app/api/export-csv
+# 2. Thêm cột "Label" vào file CSV với nhãn:
+#    Normal | Over-voltage | Under-voltage | Over-current | Over-heat | Cell-Imbalance
+# 3. Đổi tên file thành: battery_dataset_4s.csv
+# 4. Upload lên Google Colab và chạy script này
+#
+# FEATURES (10): Cell1_V, Cell2_V, Cell3_V, Cell4_V,
+#                Cell1_SOC, Cell2_SOC, Cell3_SOC, Cell4_SOC,
+#                Pack_I, Pack_T
+# LABELS  (6) : Normal, Over-voltage, Under-voltage, Over-current, Over-heat, Cell-Imbalance
 # ==============================================================================
 
-# 1. TẢI VÀ CHUẨN BỊ DỮ LIỆU
-csv_file = 'battery_dataset_augmented.csv'
+csv_file = 'battery_dataset_4s.csv'
 if not os.path.exists(csv_file):
-    print(f"Vui lòng tải file {csv_file} lên Google Colab!")
+    print(f"Vui lòng tải file '{csv_file}' lên Google Colab!")
 else:
-    # Tự động nhận diện dấu phẩy hoặc chấm phẩy (rất hay gặp khi xuất từ Excel VN)
     df = pd.read_csv(csv_file, sep=None, engine='python')
-    
-    # Xóa khoảng trắng thừa ở đầu/cuối tên cột để tránh lỗi KeyError
     df.columns = df.columns.str.strip()
-    
+    print("Các cột trong file:", df.columns.tolist())
+
+    # 1. FEATURES & LABELS
+    feature_cols = ['Cell1_V', 'Cell2_V', 'Cell3_V', 'Cell4_V',
+                    'Cell1_SOC', 'Cell2_SOC', 'Cell3_SOC', 'Cell4_SOC',
+                    'Pack_I', 'Pack_T']
     try:
-        # Chia tính năng (Features) và nhãn (Labels)
-        X = df[['V_real', 'I_real', 'T_real', 'SOC_real']].values
+        X = df[feature_cols].values
     except KeyError as e:
-        print("\n[LỖI NGHIÊM TRỌNG] Tên cột trong file của bạn không khớp!")
-        print("Danh sách các cột đang có thực sự trong file là:", df.columns.tolist())
+        print(f"\n[LỖI] Thiếu cột: {e}")
+        print("Các cột hiện có:", df.columns.tolist())
         raise e
-    
-    # Mã hóa nhãn dạng chữ (ví dụ: 'Normal', 'Over-heat') sang số nguyên (0, 1, 2...)
+
     label_encoder = LabelEncoder()
     y = label_encoder.fit_transform(df['Label'].values)
-    
-    print("Danh sách các nhãn (Class Mapping):")
-    for i, class_name in enumerate(label_encoder.classes_):
-        print(f"  Class {i}: {class_name}")
-    
-    # Số lượng phân lớp (Classes)
+
+    print("\nClass Mapping:")
+    for i, name in enumerate(label_encoder.classes_):
+        print(f"  Class {i}: {name}")
+
     num_classes = len(np.unique(y))
-    
-    # Chia tập Train / Test
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    
-    # Chuẩn hóa dữ liệu (QUAN TRỌNG: Phải lưu lại thông số scaler để code C++ scale y hệt)
+
+    # 2. TRAIN / TEST SPLIT
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y)
+
+    # 3. CHUẨN HÓA (StandardScaler)
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled = scaler.transform(X_test)
-    
-    print("\nThông số Scaler (Mean):", scaler.mean_)
-    print("Thông số Scaler (Scale):", scaler.scale_)
-    
-    # 2. XÂY DỰNG MÔ HÌNH NEURAL NETWORK (MLP)
-    # Mô hình nhỏ gọn để vừa với RAM của ESP32 (Tensor Arena)
+    X_test_scaled  = scaler.transform(X_test)
+
+    print("\n==== THÔNG SỐ SCALER (Copy vào Gateway.ino) ====")
+    feature_names = ['V_c1','V_c2','V_c3','V_c4',
+                     'SOC_c1','SOC_c2','SOC_c3','SOC_c4',
+                     'I_pack','T_pack']
+    for i, name in enumerate(feature_names):
+        print(f"  {name}: mean={scaler.mean_[i]:.6f}, scale={scaler.scale_[i]:.6f}")
+    print("=================================================\n")
+
+    # 4. XÂY DỰNG NEURAL NETWORK PACK-LEVEL (10 → 32 → 16 → 6)
     model = Sequential([
-        Dense(16, activation='relu', input_shape=(4,)),
-        Dense(8, activation='relu'),
+        Dense(32, activation='relu', input_shape=(10,)),
+        Dropout(0.2),
+        Dense(16, activation='relu'),
         Dense(num_classes, activation='softmax')
     ])
-    
-    model.compile(optimizer='adam', 
-                  loss='sparse_categorical_crossentropy', 
+
+    model.compile(optimizer='adam',
+                  loss='sparse_categorical_crossentropy',
                   metrics=['accuracy'])
-    
-    # 3. HUẤN LUYỆN
-    print("\nBắt đầu huấn luyện mô hình TensorFlow...")
-    model.fit(X_train_scaled, y_train, epochs=50, batch_size=32, validation_data=(X_test_scaled, y_test))
-    
-    # Đánh giá
+
+    model.summary()
+
+    # 5. HUẤN LUYỆN
+    print("\nBắt đầu huấn luyện model pack-level 4S...")
+    model.fit(X_train_scaled, y_train,
+              epochs=80, batch_size=32,
+              validation_data=(X_test_scaled, y_test))
+
     loss, acc = model.evaluate(X_test_scaled, y_test)
     print(f"\nĐộ chính xác trên tập Test: {acc*100:.2f}%")
-    
-    # 4. CHUYỂN ĐỔI SANG TENSORFLOW LITE (TFLITE) VÀ QUANTIZATION
+
+    # 6. CHUYỂN ĐỔI SANG TFLITE + INT8 QUANTIZATION
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
     converter.optimizations = [tf.lite.Optimize.DEFAULT]
-    
+
     def representative_dataset():
         for i in range(len(X_train_scaled)):
             yield [X_train_scaled[i:i+1].astype(np.float32)]
-            
+
     converter.representative_dataset = representative_dataset
     tflite_model = converter.convert()
-    
-    # Lưu file .tflite
-    tflite_filename = "anomaly_model.tflite"
-    with open(tflite_filename, "wb") as f:
+
+    with open("anomaly_model_4s.tflite", "wb") as f:
         f.write(tflite_model)
-    
-    # 5. CHUYỂN ĐỔI TFLITE THÀNH MẢNG C-BYTE (C ARRAY) CHO ESP32
-    # Hàm này mô phỏng công cụ 'xxd -i' của Linux
-    def convert_tflite_to_c_array(tflite_path, c_file_path):
+    print(f"Kích thước model TFLite: {len(tflite_model)} bytes")
+
+    # 7. XUẤT THÀNH C ARRAY (model_data.h) CHO ESP32
+    def to_c_array(tflite_path, out_path):
         with open(tflite_path, 'rb') as f:
-            model_bytes = f.read()
-        
-        c_code = "#ifndef MODEL_DATA_H\n#define MODEL_DATA_H\n\n"
-        c_code += "const unsigned char anomaly_model_tflite[] = {\n    "
-        
-        for i, byte in enumerate(model_bytes):
-            c_code += f"0x{byte:02x}, "
+            data = f.read()
+        c = "#ifndef MODEL_DATA_H\n#define MODEL_DATA_H\n\n"
+        c += "// Pack-level 4S Battery Anomaly Detection Model\n"
+        c += f"// Input:  10 features [V_c1..V_c4, SOC_c1..SOC_c4, I, T]\n"
+        c += f"// Output: {num_classes} classes\n"
+        c += f"// Size:   {len(data)} bytes\n\n"
+        c += "const unsigned char anomaly_model_tflite[] = {\n    "
+        for i, byte in enumerate(data):
+            c += f"0x{byte:02x}, "
             if (i + 1) % 12 == 0:
-                c_code += "\n    "
-                
-        c_code += "\n};\n\n"
-        c_code += f"const int anomaly_model_tflite_len = {len(model_bytes)};\n\n"
-        c_code += "#endif // MODEL_DATA_H\n"
-        
-        with open(c_file_path, "w") as f:
-            f.write(c_code)
-            
-    convert_tflite_to_c_array(tflite_filename, "model_data.h")
+                c += "\n    "
+        c += "\n};\n\n"
+        c += f"const int anomaly_model_tflite_len = {len(data)};\n\n"
+        c += "#endif // MODEL_DATA_H\n"
+        with open(out_path, "w") as f:
+            f.write(c)
+
+    to_c_array("anomaly_model_4s.tflite", "model_data.h")
     print("\n[THÀNH CÔNG] Đã tạo file model_data.h")
-    print("Vui lòng tải file 'model_data.h' về và đưa vào thư mục ESP32_Gateway/Gateway/")
+    print("Tải về và copy vào: ESP32_Gateway/Gateway/model_data.h")
+    print("\n⚠️  Nhớ cập nhật thông số Scaler ở trên vào Gateway.ino!")
+
+
+

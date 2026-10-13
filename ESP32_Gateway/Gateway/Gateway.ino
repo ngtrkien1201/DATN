@@ -19,7 +19,7 @@ tflite::MicroInterpreter* interpreter = nullptr;
 TfLiteTensor* input = nullptr;
 TfLiteTensor* output = nullptr;
 
-constexpr int kTensorArenaSize = 8192;
+constexpr int kTensorArenaSize = 16384; // Tăng lên 16KB cho model pack-level 10 features
 uint8_t tensor_arena[kTensorArenaSize];
 // ============================================================
 
@@ -167,114 +167,90 @@ void processBatteryTelemetry(String jsonString)
     }
 
     // ============================================================
-    // BƯỚC 1: EDGE AI INFERENCE & GIÁM SÁT AN TOÀN CHO 4 CELL
+    // BƯỚC 1: EDGE AI INFERENCE CẤP PACK 4S (1 LẦN DUY NHẤT)
+    // Input: [V_c1, V_c2, V_c3, V_c4, SOC_c1, SOC_c2, SOC_c3, SOC_c4, I, T] = 10 features
+    // Output: 6 classes [Normal, OV, UV, OC, OT, Imbalance]
+    // ============================================================
+    int pack_ai_class = 0;
+    float pack_ai_score = 100.0f;
+    unsigned long total_inference_time_us = 0;
+
+    float min_cell_v = cv[0].as<float>();
+    float max_cell_v = cv[0].as<float>();
+    for (int i = 1; i < 4; i++) {
+        float v = cv[i].as<float>();
+        if (v < min_cell_v) min_cell_v = v;
+        if (v > max_cell_v) max_cell_v = v;
+    }
+    float cell_imbalance = max_cell_v - min_cell_v;
+
+    if (interpreter != nullptr && input != nullptr && output != nullptr) {
+        // ==============================================================
+        // CHUẨN HÓA DỮ LIỆU 4S (StandardScaler)
+        // ⚠️ CẬP NHẬT các giá trị mean/scale sau khi train lại trên Colab!
+        // Lấy từ output: print("Mean:", scaler.mean_) | print("Scale:", scaler.scale_)
+        // ==============================================================
+        const float V_MEAN   = 3.50f,  V_SCALE   = 0.38f;  // Cell Voltage (V)
+        const float SOC_MEAN = 50.0f,  SOC_SCALE = 29.0f;  // Cell SOC (%)
+        const float I_MEAN   = 0.0f,   I_SCALE   = 1.20f;  // Pack Current (A)
+        const float T_MEAN   = 35.0f,  T_SCALE   = 10.0f;  // Temperature (°C)
+
+        // Điền 10 features vào input tensor
+        for (int i = 0; i < 4; i++) {
+            input->data.f[i]     = (cv[i].as<float>()   - V_MEAN)   / V_SCALE;    // V_c1..V_c4
+            input->data.f[4 + i] = (csoc[i].as<float>() - SOC_MEAN) / SOC_SCALE;  // SOC_c1..SOC_c4
+        }
+        input->data.f[8] = (I - I_MEAN) / I_SCALE;   // I_pack
+        input->data.f[9] = (T - T_MEAN) / T_SCALE;   // T_pack
+
+        unsigned long ai_start = micros();
+        if (interpreter->Invoke() == kTfLiteOk) {
+            float max_prob = output->data.f[0];
+            pack_ai_class  = 0;
+            for (int j = 1; j < 6; j++) {  // 6 classes (0..5)
+                if (output->data.f[j] > max_prob) {
+                    max_prob      = output->data.f[j];
+                    pack_ai_class = j;
+                }
+            }
+            pack_ai_score = max_prob * 100.0f;
+        } else {
+            Serial.println("-> [AI] Lỗi Invoke TFLite Pack-level!");
+        }
+        unsigned long ai_end = micros();
+        total_inference_time_us = ai_end - ai_start;
+    }
+
+    // ============================================================
+    // BƯỚC 2: PER-CELL GUARDRAIL (Không dùng AI — chỉ ngưỡng cứng)
+    // Xác định cell nào bị lỗi để hiển thị màu trên Dashboard
     // ============================================================
     JsonArray cai_class = doc.createNestedArray("CAI_Class");
-    
-    unsigned long total_inference_time_us = 0;
-    int pack_ai_class = 0;      // Mặc định tổng thể pack là Normal
-    float pack_ai_score = 100.0f; // Điểm tin cậy mặc định
-    
-    float min_cell_v = 99.0f;
-    float max_cell_v = 0.0f;
-    float sum_conf_normal = 0.0f;
-    int normal_count = 0;
-    int worst_anomaly_class = 0;
-    float worst_anomaly_conf = 0.0f;
-
     for (int i = 0; i < 4; i++) {
-        float cell_v   = cv[i].as<float>();
-        float cell_soc = csoc[i].as<float>();
+        float cell_v  = cv[i].as<float>();
+        int cell_class = 0;
 
-        if (cell_v < min_cell_v) min_cell_v = cell_v;
-        if (cell_v > max_cell_v) max_cell_v = cell_v;
+        if      (cell_v > CELL_OV_THRESHOLD)                             cell_class = 1;
+        else if (cell_v < CELL_UV_THRESHOLD)                             cell_class = 2;
+        else if (abs(I) > PACK_OC_THRESHOLD)                             cell_class = 3;
+        else if (T > PACK_OT_THRESHOLD)                                  cell_class = 4;
+        else if (cell_imbalance > CELL_IMBALANCE_MAX && cell_v == min_cell_v) cell_class = 5;
 
-        int cell_ai_class = 0;
-        float cell_confidence = 100.0f;
-
-        // Chạy suy luận TFLite nếu AI khả dụng
-        if (interpreter != nullptr && input != nullptr && output != nullptr) {
-            // Chuẩn hóa dữ liệu theo Scaler đã train trên Colab
-            float V_norm   = (cell_v   - 3.82491198f) / 0.398182204f;
-            float I_norm   = (I        - 0.0159294559f) / 0.0118215338f;
-            float T_norm   = (T        - 35.0664208f)   / 5.14145397f;
-            float SOC_norm = (cell_soc - 68.2045365f)   / 23.7133269f;
-
-            unsigned long ai_start = micros();
-            input->data.f[0] = V_norm;
-            input->data.f[1] = I_norm;
-            input->data.f[2] = T_norm;
-            input->data.f[3] = SOC_norm;
-
-            if (interpreter->Invoke() == kTfLiteOk) {
-                float max_prob = output->data.f[0];
-                cell_ai_class = 0;
-                for (int j = 1; j < 5; j++) {
-                    if (output->data.f[j] > max_prob) {
-                        max_prob = output->data.f[j];
-                        cell_ai_class = j;
-                    }
-                }
-                cell_confidence = max_prob * 100.0f;
-            } else {
-                Serial.println("Lỗi Invoke TFLite!");
-            }
-            unsigned long ai_end = micros();
-            total_inference_time_us += (ai_end - ai_start);
-        }
-
-        // --- LAYER BẢO VỆ AN TOÀN VẬT LÝ (Deterministic Guardrails) ---
-        // Đảm bảo không bị bỏ sót lỗi nếu mạng nơ-ron nhận diện sai
-        if (cell_v > CELL_OV_THRESHOLD) {
-            cell_ai_class = 1; // Over-voltage
-            cell_confidence = 99.5f;
-        } else if (cell_v < CELL_UV_THRESHOLD) {
-            cell_ai_class = 2; // Under-voltage
-            cell_confidence = 99.5f;
-        } else if (abs(I) > PACK_OC_THRESHOLD) {
-            cell_ai_class = 3; // Over-current
-            cell_confidence = 99.5f;
-        } else if (T > PACK_OT_THRESHOLD) {
-            cell_ai_class = 4; // Over-heat
-            cell_confidence = 99.5f;
-        }
-
-        // Ghi nhận kết quả của Cell i
-        cai_class.add(cell_ai_class);
-
-        // Đánh giá tổng hợp lỗi của toàn Pack
-        if (cell_ai_class != 0) {
-            // Ưu tiên hiển thị lỗi nghiêm trọng nhất của Pack
-            if (worst_anomaly_class == 0 || cell_ai_class > worst_anomaly_class) {
-                worst_anomaly_class = cell_ai_class;
-                worst_anomaly_conf = cell_confidence;
-            }
-        } else {
-            sum_conf_normal += cell_confidence;
-            normal_count++;
-        }
+        cai_class.add(cell_class);
     }
 
-    // Đánh giá trạng thái Anomaly tổng hợp của Pack 4S
-    if (worst_anomaly_class != 0) {
-        pack_ai_class = worst_anomaly_class;
-        pack_ai_score = worst_anomaly_conf;
-    } else {
-        pack_ai_class = 0;
-        pack_ai_score = normal_count > 0 ? (sum_conf_normal / normal_count) : 98.5f;
-    }
-
-    // Cảnh báo và gán class nếu Pack bị mất cân bằng (Cell Imbalance)
-    // Chỉ áp dụng khi chưa có lỗi nghiêm trọng hơn (OV/UV/OC/OT)
-    float cell_imbalance = max_cell_v - min_cell_v;
-    if (cell_imbalance > CELL_IMBALANCE_MAX) {
+    // ============================================================
+    // BƯỚC 3: PACK GUARDRAIL OVERRIDE (Ưu tiên tuyệt đối)
+    // Đảm bảo AI không bao giờ bỏ sót lỗi vật lý nghiêm trọng
+    // ============================================================
+    if      (max_cell_v > CELL_OV_THRESHOLD) { pack_ai_class = 1; pack_ai_score = 99.5f; }
+    else if (min_cell_v < CELL_UV_THRESHOLD) { pack_ai_class = 2; pack_ai_score = 99.5f; }
+    else if (abs(I) > PACK_OC_THRESHOLD)     { pack_ai_class = 3; pack_ai_score = 99.5f; }
+    else if (T > PACK_OT_THRESHOLD)          { pack_ai_class = 4; pack_ai_score = 99.5f; }
+    else if (cell_imbalance > CELL_IMBALANCE_MAX && pack_ai_class == 0) {
+        pack_ai_class = 5;
+        pack_ai_score = fminf(99.5f, 50.0f + (cell_imbalance - CELL_IMBALANCE_MAX) / CELL_IMBALANCE_MAX * 50.0f);
         Serial.printf("-> [CẢNH BÁO 4S] Độ lệch cell quá lớn: %.3f V!\n", cell_imbalance);
-        if (worst_anomaly_class == 0) {
-            // Không có lỗi nào khác nghiêm trọng hơn → gán Imbalance
-            pack_ai_class = 5;
-            // Confidence tỉ lệ với mức độ lệch: 350mV → 50%, 700mV → 100%
-            pack_ai_score = fminf(99.5f, 50.0f + (cell_imbalance - CELL_IMBALANCE_MAX) / CELL_IMBALANCE_MAX * 50.0f);
-        }
     }
 
     // Gán dữ liệu AI tổng hợp vào gói JSON cho Web/Digital Twin
