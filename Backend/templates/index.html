@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Battery Digital Twin Platform</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1/dist/chartjs-adapter-luxon.umd.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar glass-panel">
+            <div class="logo">
+                <i data-lucide="layers" class="gradient-text" style="width:32px; height:32px;"></i>
+                <h2 style="font-size: 1.2rem;">Digital Twin<br><small style="font-size:0.75rem; color: var(--text-muted);">Industrial Platform</small></h2>
+            </div>
+            
+            <nav class="menu">
+                <a class="menu-item active" data-target="overview-page"><i data-lucide="layout-dashboard"></i> System Overview</a>
+                <a class="menu-item" data-target="live-page"><i data-lucide="activity"></i> Live Monitoring</a>
+                <a class="menu-item" data-target="twin-page"><i data-lucide="cpu"></i> Digital Twin</a>
+                <a class="menu-item" data-target="ai-page"><i data-lucide="brain-circuit"></i> Edge AI & Anomaly</a>
+                <a class="menu-item" data-target="validation-page"><i data-lucide="check-circle"></i> Model Validation</a>
+                <a class="menu-item" data-target="rul-page"><i data-lucide="hourglass"></i> Prognostics & RUL</a>
+                <a class="menu-item" data-target="data-page"><i data-lucide="database"></i> Data & Experiments</a>
+                <a class="menu-item" data-target="config-page"><i data-lucide="settings"></i> System Config</a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Top Status Bar (Persistent across some pages or specific to overview) -->
+            <div id="global-status-bar" class="glass-panel status-bar">
+                <div class="status-item"><i data-lucide="battery"></i> <span id="gb-id">BAT-001</span></div>
+                <div class="status-item"><i data-lucide="wifi"></i> Sys: <span id="gb-sys" class="text-green">Online</span></div>
+                <div class="status-item"><i data-lucide="cpu"></i> STM32: <span id="gb-stm">Connected</span></div>
+                <div class="status-item"><i data-lucide="radio"></i> ESP32: <span id="gb-esp">Connected</span></div>
+                <div class="status-item"><i data-lucide="cloud"></i> MQTT: <span id="gb-mqtt">Connected</span></div>
+                <div class="status-item"><i data-lucide="clock"></i> Update: <span id="gb-time">--:--:--</span></div>
+                <div class="status-item"><i data-lucide="zap"></i> Mode: <span id="gb-mode" class="text-orange">Discharging</span></div>
+            </div>
+
+            <!-- ============================================ -->
+            <!-- PAGE 1: SYSTEM OVERVIEW                      -->
+            <!-- ============================================ -->
+            <div id="overview-page" class="page-content">
+                <header class="topbar">
+                    <div><h1>System Overview</h1><p class="subtitle">Real-time Battery Digital Twin Architecture</p></div>
+                </header>
+
+                <!-- Architecture Flow -->
+                <div class="glass-panel" style="padding: 1.5rem; margin-top: 1rem;">
+                    <div class="flow-diagram">
+                        <div class="flow-node"><div class="flow-icon node-active"><i data-lucide="cpu"></i></div>STM32<br><small>Sensors & Filter</small></div>
+                        <div class="flow-arrow"></div>
+                        <div class="flow-node"><div class="flow-icon node-active"><i data-lucide="radio"></i></div>ESP32-S3<br><small>IoT & Edge AI</small></div>
+                        <div class="flow-arrow"></div>
+                        <div class="flow-node"><div class="flow-icon node-active"><i data-lucide="cloud"></i></div>MQTT<br><small>Broker</small></div>
+                        <div class="flow-arrow"></div>
+                        <div class="flow-node"><div class="flow-icon node-active"><i data-lucide="layers"></i></div>Digital Twin<br><small>1RC Model</small></div>
+                        <div class="flow-arrow"></div>
+                        <div class="flow-node"><div class="flow-icon node-active"><i data-lucide="monitor"></i></div>Dashboard<br><small>Web UI</small></div>
+                    </div>
+                </div>
+
+                <div class="grid-4" style="margin-top: 1.5rem;">
+                    <!-- Physical Battery -->
+                    <div class="glass-panel p-4">
+                        <h3 class="section-title text-orange"><i data-lucide="battery-charging"></i> Physical Pack 4S</h3>
+                        <div class="twin-item"><span>Pack Voltage</span><strong id="ov-v">0.000 V</strong></div>
+                        <div class="twin-item"><span>Current</span><strong id="ov-i">0.000 A</strong></div>
+                        <div class="twin-item"><span>Temperature</span><strong id="ov-t">0.0 °C</strong></div>
+                        <div class="twin-item"><span>Power</span><strong id="ov-p">0.000 W</strong></div>
+                        <div class="twin-item"><span>Pack SOC</span><strong id="ov-soc" class="text-green">0.0 %</strong></div>
+                        <div class="twin-item"><span>Pack SOH</span><strong id="ov-soh" class="text-blue">0.0 %</strong></div>
+                    </div>
+                    <!-- 4S Cells -->
+                    <div class="glass-panel p-4">
+                        <h3 class="section-title text-green"><i data-lucide="bar-chart-2"></i> Individual Cells</h3>
+                        <div class="twin-item"><span>Cell 1</span><strong id="ov-c1" class="text-green">0.00 V | 0% | C0</strong></div>
+                        <div class="twin-item"><span>Cell 2</span><strong id="ov-c2" class="text-green">0.00 V | 0% | C0</strong></div>
+                        <div class="twin-item"><span>Cell 3</span><strong id="ov-c3" class="text-green">0.00 V | 0% | C0</strong></div>
+                        <div class="twin-item"><span>Cell 4</span><strong id="ov-c4" class="text-green">0.00 V | 0% | C0</strong></div>
+                    </div>
+                    <!-- Digital Twin -->
+                    <div class="glass-panel p-4">
+                        <h3 class="section-title text-blue"><i data-lucide="box"></i> Digital Twin</h3>
+                        <div class="twin-item"><span>Twin Voltage</span><strong id="ov-tv" class="text-blue">0.000 V</strong></div>
+                        <div class="twin-item"><span>Twin SOC</span><strong id="ov-tsoc" class="text-green">0.0 %</strong></div>
+                        <div class="twin-item"><span>Voltage Error</span><strong id="ov-err">0 mV</strong></div>
+                        <div class="twin-item"><span>Sync Status</span><strong id="ov-sync">Synchronized</strong></div>
+                        <div class="twin-item"><span>Model Ver</span><strong>ECM-1RC-v1.2</strong></div>
+                    </div>
+                    <!-- Edge AI -->
+                    <div class="glass-panel p-4">
+                        <h3 class="section-title text-purple"><i data-lucide="brain"></i> Edge AI</h3>
+                        <div class="twin-item"><span>AI Status</span><strong>Running (ESP32)</strong></div>
+                        <div class="twin-item"><span>Anomaly</span><strong id="ov-anomaly">Normal</strong></div>
+                        <div class="twin-item"><span>Anomaly Score</span><strong id="ov-ascore">0.00</strong></div>
+                        <div class="twin-item"><span>Inference Time</span><strong id="ov-atime">14 ms</strong></div>
+                    </div>
+                </div>
+
+                <div class="grid-2" style="margin-top: 1.5rem;">
+                    <div class="glass-panel p-4">
+                        <h3 class="section-title"><i data-lucide="activity"></i> Recent V-I Trend</h3>
+                        <div class="chart-sm"><canvas id="c-overview"></canvas></div>
+                    </div>
+                    <div class="glass-panel p-4">
+                        <h3 class="section-title"><i data-lucide="bell"></i> Active Alerts</h3>
+                        <div id="active-alerts" class="alerts-container">
+                            <div class="alert-item alert-info">System started normally.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================ -->
+            <!-- PAGE 2: LIVE MONITORING                      -->
+            <!-- ============================================ -->
+            <div id="live-page" class="page-content hidden">
+                <header class="topbar">
+                    <div><h1>Live Monitoring</h1><p class="subtitle">Direct Sensor Data & Calculated Power</p></div>
+                    <div class="actions">
+                        <button class="btn-outline" onclick="window.location.href='/api/export-csv'"><i data-lucide="download"></i> Export CSV</button>
+                    </div>
+                </header>
+
+                <div class="grid-4" style="margin-top: 1rem;">
+                    <div class="kpi-card glass-panel"><span>Voltage</span><h2 id="lm-v">0.000 <small>V</small></h2></div>
+                    <div class="kpi-card glass-panel"><span>Current</span><h2 id="lm-i">0.000 <small>A</small></h2></div>
+                    <div class="kpi-card glass-panel"><span>Power</span><h2 id="lm-p">0.000 <small>W</small></h2></div>
+                    <div class="kpi-card glass-panel border-green"><span>Estimated SOC</span><h2 id="lm-soc" class="text-green">0.0 <small>%</small></h2></div>
+                </div>
+
+                <div class="grid-2" style="margin-top: 1.5rem;">
+                    <div class="glass-panel p-4"><h4 class="chart-title">Voltage (V)</h4><div class="chart-md"><canvas id="c-lm-v"></canvas></div></div>
+                    <div class="glass-panel p-4"><h4 class="chart-title">Current (A)</h4><div class="chart-md"><canvas id="c-lm-i"></canvas></div></div>
+                    <div class="glass-panel p-4"><h4 class="chart-title">Temperature (°C)</h4><div class="chart-md"><canvas id="c-lm-t"></canvas></div></div>
+                    <div class="glass-panel p-4"><h4 class="chart-title">Power (W)</h4><div class="chart-md"><canvas id="c-lm-p"></canvas></div></div>
+                </div>
+
+                <div class="glass-panel p-4" style="margin-top: 1.5rem;">
+                    <h3 class="section-title"><i data-lucide="list"></i> Live Data Feed</h3>
+                    <div class="table-container" style="max-height: 250px;">
+                        <table>
+                            <thead><tr><th>Timestamp</th><th>Voltage</th><th>Current</th><th>Temp</th><th>Power</th><th>Energy</th><th>Est. SOC</th></tr></thead>
+                            <tbody id="live-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================ -->
+            <!-- PAGE 3: DIGITAL TWIN                         -->
+            <!-- ============================================ -->
+            <div id="twin-page" class="page-content hidden">
+                <header class="topbar">
+                    <div><h1>Digital Twin</h1><p class="subtitle">Thevenin 1RC Model & State Synchronization</p></div>
+                </header>
+
+                <div class="grid-3" style="margin-top: 1.5rem;">
+                    <!-- Physical State -->
+                    <div class="glass-panel p-4">
+                        <h3 class="section-title text-orange"><i data-lucide="battery-charging"></i> Physical State</h3>
+                        <div class="battery-visual-container"><div class="battery-physical"><div class="battery-fill" id="dt-pb-fill"></div></div></div>
+                        <div class="twin-item"><span>Measured Voltage</span><strong id="dt-pb-v">0 V</strong></div>
+                        <div class="twin-item"><span>Measured Current</span><strong id="dt-pb-i">0 A</strong></div>
+                        <div class="twin-item"><span>Est. Physical SOC</span><strong id="dt-pb-soc" class="text-green">0 %</strong></div>
+                    </div>
+
+                    <!-- Sync Status -->
+                    <div class="glass-panel p-4">
+                        <h3 class="section-title text-purple"><i data-lucide="refresh-cw"></i> Synchronization</h3>
+                        <div style="text-align:center; padding: 20px 0;">
+                            <div class="status-badge badge-blue" style="font-size: 1.1rem; padding: 10px 20px;"><div class="pulse-dot"></div> <span id="dt-sync-status">Synchronized</span></div>
+                        </div>
+                        <div class="twin-item"><span>Physical Voltage</span><strong id="dt-sync-pv">0 V</strong></div>
+                        <div class="twin-item"><span>Twin Voltage</span><strong id="dt-sync-tv" class="text-blue">0 V</strong></div>
+                        <div class="twin-item"><span>Residual</span><strong id="dt-sync-res" class="text-orange">0 V</strong></div>
+                        <div class="twin-item"><span>Relative Error</span><strong id="dt-sync-err" class="text-red">0 %</strong></div>
+                        <div class="twin-item"><span>Data Age</span><strong id="dt-sync-age">0.0 s</strong></div>
+                    </div>
+
+                    <!-- Twin State -->
+                    <div class="glass-panel p-4">
+                        <h3 class="section-title text-blue"><i data-lucide="cpu"></i> Twin State</h3>
+                        <div class="battery-visual-container"><div class="battery-hologram"><div class="battery-grid"></div><div class="battery-fill-glow" id="dt-tb-fill"></div><div class="scanline"></div></div></div>
+                        <div class="twin-item"><span>OCV</span><strong id="dt-tb-ocv">0 V</strong></div>
+                        <div class="twin-item"><span>Predicted Terminal V</span><strong id="dt-tb-tv" class="text-blue">0 V</strong></div>
+                        <div class="twin-item"><span>Twin SOC</span><strong id="dt-tb-soc" class="text-green">0 %</strong></div>
+                    </div>
+                </div>
+
+                <div class="grid-2" style="margin-top: 1.5rem;">
+                    <!-- Model Params -->
+                    <div class="glass-panel p-4">
+                        <h3 class="section-title"><i data-lucide="settings"></i> 1RC ECM Parameters</h3>
+                        <div class="grid-2">
+                            <div>
+                                <div class="twin-item"><span>R0 (Ohmic)</span><strong id="dt-p-r0">0 mΩ</strong></div>
+                                <div class="twin-item"><span>R1 (Polarization)</span><strong id="dt-p-r1">0 mΩ</strong></div>
+                            </div>
+                            <div>
+                                <div class="twin-item"><span>C1 (Capacitance)</span><strong id="dt-p-c1">0 F</strong></div>
+                                <div class="twin-item"><span>V_p (Polarization V)</span><strong id="dt-p-vp">0 V</strong></div>
+                            </div>
+                        </div>
+                        <div class="twin-item mt-2"><span>Model Type</span><strong>Thevenin 1RC</strong></div>
+                        <div class="twin-item"><span>State Estimator</span><strong>OCV + Coulomb</strong></div>
+                    </div>
+                    
+                    <!-- Scenario Simulation -->
+                    <div class="glass-panel p-4 border-neon">
+                        <h3 class="section-title text-blue"><i data-lucide="flask-conical"></i> Scenario Simulation</h3>
+                        <p class="text-sm text-muted mb-2">Simulate digital twin future state under custom load conditions.</p>
+                        <div class="grid-3" style="align-items: end;">
+                            <div class="input-group">
+                                <label>Target Current (A)</label>
+                                <input type="number" id="sim-current" step="0.1" value="-2.0">
+                            </div>
+                            <div class="input-group">
+                                <label>Duration (Minutes)</label>
+                                <input type="number" id="sim-duration" value="60">
+                            </div>
+                            <button class="btn-primary" onclick="runWhatIf()" style="height:42px; margin-bottom:15px;">Simulate</button>
+                        </div>
+                        <div id="sim-results" class="hidden mt-2 p-3" style="background: rgba(0,0,0,0.3); border-radius: 8px;">
+                            <div class="grid-4">
+                                <div><small class="text-muted">Sim V</small><br><strong id="sim-r-v" class="text-blue">0V</strong></div>
+                                <div><small class="text-muted">Sim SOC</small><br><strong id="sim-r-soc" class="text-green">0%</strong></div>
+                                <div><small class="text-muted">Sim Temp</small><br><strong id="sim-r-t" class="text-orange">0°C</strong></div>
+                                <div><small class="text-muted">Sim V_p</small><br><strong id="sim-r-vp">0V</strong></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================ -->
+            <!-- PAGE 4: EDGE AI & ANOMALY                    -->
+            <!-- ============================================ -->
+            <div id="ai-page" class="page-content hidden">
+                <header class="topbar">
+                    <div><h1>Edge AI & Anomaly</h1><p class="subtitle">On-device ML Inference (ESP32-S3)</p></div>
+                </header>
+
+                <div class="grid-3" style="margin-top: 1.5rem;">
+                    <!-- Panel 1: Model Specs -->
+                    <div class="glass-panel p-4">
+                        <h3 class="section-title"><i data-lucide="cpu"></i> Model Architecture</h3>
+                        <div class="twin-item"><span>Execution Node</span><strong class="text-cyan">ESP32-S3 (Edge)</strong></div>
+                        <div class="twin-item"><span>Framework</span><strong>TensorFlow Lite Micro</strong></div>
+                        <div class="twin-item"><span>Model Type</span><strong>MLP Classifier</strong></div>
+                        <div class="twin-item"><span>Quantization</span><strong>INT8</strong></div>
+                        <div class="twin-item"><span>Inference Time</span><strong id="ai-time" class="text-green">1 ms</strong></div>
+                    </div>
+
+                    <!-- Panel 2: Live Inference Dashboard -->
+                    <div class="glass-panel p-4" style="grid-column: span 2;">
+                        <h3 class="section-title text-purple"><i data-lucide="activity"></i> Real-Time AI Inference</h3>
+                        <div class="grid-2" style="gap: 2rem;">
+                            <!-- Score Display -->
+                            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.2); border-radius: 12px; padding: 20px;">
+                                <h1 id="ai-score" style="font-size: 3.5rem; color: var(--emerald); text-shadow: 0 0 20px rgba(16,185,129,0.4); margin: 0;">0.05</h1>
+                                <p class="text-muted" style="letter-spacing: 1px; text-transform: uppercase; font-size: 0.8rem; margin-top: 5px;">Anomaly Score</p>
+                                
+                                <div style="width: 100%; background: #333; height: 6px; border-radius: 3px; margin-top: 15px; overflow: hidden;">
+                                    <div id="ai-score-bar" style="width: 5%; height: 100%; background: var(--emerald); transition: width 0.3s ease, background 0.3s ease;"></div>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; width: 100%; font-size: 0.7rem; color: #888; margin-top: 4px;">
+                                    <span>Safe (0.0)</span>
+                                    <span>Threshold: 0.70</span>
+                                    <span>Critical (1.0)</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Detailed Metrics -->
+                            <div style="display:flex; flex-direction:column; justify-content:center; gap: 15px;">
+                                <div>
+                                    <span style="font-size: 0.85rem; color: var(--text-muted);">Current System Status</span>
+                                    <div style="font-size: 1.5rem; font-weight: bold;" id="ai-status" class="text-green">Normal</div>
+                                </div>
+                                
+                                <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; border-left: 4px solid var(--purple);">
+                                    <span style="font-size: 0.8rem; color: var(--text-muted);">Detected Class Label</span>
+                                    <div style="font-size: 1.1rem; font-weight: 600;" id="ai-class">Normal Operation</div>
+                                </div>
+                                
+                                <div>
+                                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px;">
+                                        <span color="var(--text-muted)">Prediction Confidence</span>
+                                        <strong id="ai-conf">98.5%</strong>
+                                    </div>
+                                    <div style="width: 100%; background: #222; height: 8px; border-radius: 4px; overflow: hidden;">
+                                        <div id="ai-conf-bar" style="width: 98.5%; height: 100%; background: linear-gradient(90deg, var(--purple), var(--cyan)); transition: width 0.3s ease;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-4" style="margin-top: 1.5rem;">
+                    <h3 class="section-title"><i data-lucide="alert-triangle"></i> Anomaly History</h3>
+                    <div class="table-container">
+                        <table>
+                            <thead><tr><th>Time</th><th>Type</th><th>Score</th><th>Voltage</th><th>Current</th><th>Temp</th><th>Action</th></tr></thead>
+                            <tbody id="ai-history-body">
+                                <tr><td>08:15:31</td><td>Voltage Drop</td><td class="text-orange">0.82</td><td>3.21 V</td><td>-1.2 A</td><td>35.1°C</td><td><span class="status-badge badge-orange">Warning</span></td></tr>
+                                <tr><td>07:22:10</td><td>Over-current</td><td class="text-red">0.95</td><td>3.90 V</td><td>-4.5 A</td><td>39.2°C</td><td><span class="status-badge badge-red">Alert</span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================ -->
+            <!-- PAGE 5: MODEL VALIDATION                     -->
+            <!-- ============================================ -->
+            <div id="validation-page" class="page-content hidden">
+                <header class="topbar">
+                    <div><h1>Model Validation</h1><p class="subtitle">Digital Twin Accuracy & Error Metrics</p></div>
+                </header>
+
+                <div class="grid-4" style="margin-top: 1.5rem;">
+                    <div class="kpi-card glass-panel"><span>Voltage MAE</span><h2 id="val-v-mae">0.000 <small>V</small></h2></div>
+                    <div class="kpi-card glass-panel"><span>Voltage RMSE</span><h2 id="val-v-rmse">0.000 <small>V</small></h2></div>
+                    <div class="kpi-card glass-panel"><span>Max Error</span><h2 id="val-v-max">0.000 <small>V</small></h2></div>
+                    <div class="kpi-card glass-panel border-green"><span>SOC MAE</span><h2 id="val-soc-mae" class="text-green">0.0 <small>%</small></h2></div>
+                </div>
+
+                <div class="grid-2" style="margin-top: 1.5rem;">
+                    <div class="glass-panel p-4"><h4 class="chart-title">Measured vs Twin Voltage</h4><div class="chart-md"><canvas id="c-val-volt"></canvas></div></div>
+                    <div class="glass-panel p-4"><h4 class="chart-title">Physical vs Twin SOC</h4><div class="chart-md"><canvas id="c-val-soc"></canvas></div></div>
+                    <div class="glass-panel p-4"><h4 class="chart-title">Voltage Residual Error (V)</h4><div class="chart-md"><canvas id="c-val-err"></canvas></div></div>
+                    <div class="glass-panel p-4"><h4 class="chart-title">Internal Resistance Trend (mΩ)</h4><div class="chart-md"><canvas id="c-val-res"></canvas></div></div>
+                </div>
+            </div>
+
+            <!-- ============================================ -->
+            <!-- PAGE 6: PROGNOSTICS & RUL                    -->
+            <!-- ============================================ -->
+            <div id="rul-page" class="page-content hidden">
+                <header class="topbar">
+                    <div><h1>Prognostics & RUL</h1><p class="subtitle">Remaining Useful Life Prediction</p></div>
+                </header>
+                
+                <div class="grid-2" style="margin-top: 1.5rem;">
+                    <!-- RUL Prediction -->
+                    <div class="glass-panel p-4 text-center border-neon">
+                        <h3 class="section-title justify-center text-blue"><i data-lucide="hourglass"></i> RUL Prediction</h3>
+                        <h1 id="rul-cycles" style="font-size: 4.5rem; color: var(--neon-blue); margin: 20px 0;">0</h1>
+                        <p class="text-lg">Estimated Cycles Remaining</p>
+                        <div class="grid-2 mt-4 text-left" style="background:rgba(0,0,0,0.2); padding:15px; border-radius:8px;">
+                            <div class="twin-item" style="border:none;"><span>Confidence Range</span><strong id="rul-conf">0 - 0 cycles</strong></div>
+                            <div class="twin-item" style="border:none;"><span>Failure Criterion</span><strong>SOH ≤ 80%</strong></div>
+                            <div class="twin-item" style="border:none;"><span>Prediction Model</span><strong>RUL-MLP-v1.0</strong></div>
+                            <div class="twin-item" style="border:none;"><span>Data Window</span><strong>Last 100 cycles</strong></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Health Indicators -->
+                    <div class="glass-panel p-4">
+                        <h3 class="section-title text-orange"><i data-lucide="activity"></i> Health Indicators (SOH)</h3>
+                        <div class="twin-item"><span>SOH by Capacity</span><strong id="rul-soh-cap" class="text-blue">0 %</strong></div>
+                        <div class="twin-item"><span>SOH by Resistance</span><strong id="rul-soh-res" class="text-orange">0 %</strong></div>
+                        <div class="twin-item"><span>Capacity Fade</span><strong id="rul-fade">0 %</strong></div>
+                        <div class="twin-item"><span>Resistance Growth</span><strong id="rul-growth">0 %</strong></div>
+                        <div class="twin-item"><span>Nominal Capacity</span><strong>2.60 Ah</strong></div>
+                        <div class="twin-item"><span>Estimated Capacity</span><strong id="rul-est-cap">2.60 Ah</strong></div>
+                        <div class="twin-item mt-2"><span>Aging Stage</span><span id="rul-stage" class="status-badge badge-green">Normal</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================ -->
+            <!-- PAGE 7: DATA & EXPERIMENTS                   -->
+            <!-- ============================================ -->
+            <div id="data-page" class="page-content hidden">
+                <header class="topbar">
+                    <div><h1>Data & Experiments</h1><p class="subtitle">Experiment Sessions & System Evaluation</p></div>
+                </header>
+
+                <div class="grid-2" style="margin-top: 1.5rem;">
+                    <!-- System Evaluation -->
+                    <div class="glass-panel p-4">
+                        <h3 class="section-title"><i data-lucide="bar-chart"></i> System Evaluation</h3>
+                        <div class="grid-2">
+                            <div>
+                                <div class="twin-item"><span>Packet Loss</span><strong class="text-green">0.02 %</strong></div>
+                                <div class="twin-item"><span>Avg Latency</span><strong>125 ms</strong></div>
+                                <div class="twin-item"><span>Max Latency</span><strong>450 ms</strong></div>
+                                <div class="twin-item"><span>MQTT Reconnects</span><strong>0</strong></div>
+                            </div>
+                            <div>
+                                <div class="twin-item"><span>AI Precision</span><strong>94.5 %</strong></div>
+                                <div class="twin-item"><span>AI Recall</span><strong>92.1 %</strong></div>
+                                <div class="twin-item"><span>AI F1-score</span><strong>0.93</strong></div>
+                                <div class="twin-item"><span>DB Missed Samples</span><strong>0</strong></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-4" style="margin-top: 1.5rem;">
+                    <h3 class="section-title"><i data-lucide="archive"></i> Experiment Sessions</h3>
+                    <div class="table-container">
+                        <table>
+                            <thead><tr><th>Session</th><th>Profile</th><th>Duration</th><th>Samples</th><th>Model</th><th>Status</th></tr></thead>
+                            <tbody>
+                                <tr><td>EXP-001</td><td>Constant load 1A</td><td>60 min</td><td>3600</td><td>ECM-v1.2</td><td><span class="status-badge badge-green">Completed</span></td></tr>
+                                <tr><td>EXP-002</td><td>Variable load</td><td>45 min</td><td>2700</td><td>ECM-v1.2</td><td><span class="status-badge badge-green">Completed</span></td></tr>
+                                <tr><td>EXP-003</td><td>Pulsed discharge</td><td>--</td><td>1250</td><td>ECM-v1.2</td><td><span class="status-badge badge-blue">Running</span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================ -->
+            <!-- PAGE 8: SYSTEM CONFIGURATION                 -->
+            <!-- ============================================ -->
+            <div id="config-page" class="page-content hidden">
+                <header class="topbar">
+                    <div><h1>System Configuration</h1><p class="subtitle">Platform Settings & Thresholds</p></div>
+                </header>
+                
+                <div class="grid-2" style="margin-top: 1.5rem;">
+                    <!-- Battery Profile Selection -->
+                    <div class="glass-panel p-4 border-neon">
+                        <h3 class="section-title text-blue"><i data-lucide="battery"></i> Battery Profile Selection</h3>
+                        <p class="text-sm text-muted mb-2">Select the battery type to synchronize the Digital Twin capacity and limits.</p>
+                        
+                        <div class="input-group mt-4">
+                            <label>Generic 18650 Battery Types</label>
+                            <select id="config-battery-type" style="background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 12px 15px; color: white; border-radius: 10px; outline: none; font-family: 'Outfit'; font-size: 1rem; width: 100%;">
+                                <option value="1">Generic 18650 1.2Ah</option>
+                                <option value="2">Generic 18650 1.6Ah</option>
+                                <option value="3">Generic 18650 1.8Ah</option>
+                                <option value="4">Generic 18650 2.0Ah</option>
+                                <option value="5" selected>Generic 18650 2.2Ah</option>
+                                <option value="6">Generic 18650 3.0Ah</option>
+                            </select>
+                        </div>
+                        
+                        <button class="btn-primary mt-4" onclick="updateBatteryConfig()"><i data-lucide="upload-cloud"></i> Apply Configuration</button>
+                    </div>
+
+                    <!-- System Diagnostics & Maintenance -->
+                    <div class="glass-panel p-4 border-neon" style="border-color: #ff3366;">
+                        <h3 class="section-title text-orange" style="color: #ff3366;"><i data-lucide="refresh-cw"></i> System Maintenance</h3>
+                        <p class="text-sm text-muted mb-2">Diagnostic tools and hardware overrides for the Edge Devices.</p>
+                        
+                        <div class="mt-4" style="background: rgba(255,51,102,0.1); padding: 15px; border-radius: 10px; border: 1px solid rgba(255,51,102,0.3);">
+                            <h4 style="color: #ff3366; font-size: 0.95rem; margin-bottom: 5px;">Reset Battery SOH (Tuổi Thọ)</h4>
+                            <p class="text-xs text-muted" style="margin-bottom: 15px;">Warning: Click this only when you replace the physical battery cells. This will clear the STM32 Flash memory and reset SOH of all 4 cells to 100%.</p>
+                            <button class="btn-primary" style="background: linear-gradient(135deg, #ff3366, #ff6b6b); width: 100%; border: none;" onclick="resetBatterySOH()">
+                                <i data-lucide="rotate-ccw"></i> Factory Reset SOH
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>lucide.createIcons();</script>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
