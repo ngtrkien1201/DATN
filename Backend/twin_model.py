@@ -4,11 +4,12 @@ import datetime
 import random
 
 # ============================================================
-# BẢNG TRA CỨU OCV-SOC (Lookup Table) cho Pin Li-ion 18650
+# BẢNG TRA CỨU OCV-SOC (Lookup Table) cho Pin Li-ion 18650 4S
+# Đồng bộ chuẩn với bảng tra trong STM32 (SOC.c)
 # ============================================================
 def interpolate_ocv(soc, s_count=4):
     soc_points = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]
-    ocv_points = [2.80, 3.20, 3.40, 3.48, 3.52, 3.56, 3.60, 3.63, 3.65, 3.67, 3.70, 3.73, 3.75, 3.78, 3.80, 3.85, 3.90, 3.95, 4.00, 4.10, 4.20]
+    ocv_points = [3.30, 3.50, 3.60, 3.68, 3.70, 3.72, 3.74, 3.76, 3.78, 3.80, 3.82, 3.84, 3.87, 3.91, 3.95, 3.98, 4.02, 4.08, 4.11, 4.15, 4.20]
     if soc <= 0: return ocv_points[0] * s_count
     if soc >= 100: return ocv_points[-1] * s_count
     for i in range(len(soc_points) - 1):
@@ -34,7 +35,7 @@ class BatteryTwin:
         self.twin_terminal_v = 0.0
         self.internal_twin_soc = None
         self.internal_twin_soh = 100.0
-        self.internal_twin_temp = None
+        self.internal_twin_temp = 25.0
         self.remaining_capacity = self.capacity_Ah
         self.cycle_count = 0
         self.coulomb_accumulator = 0.0
@@ -108,13 +109,13 @@ class BatteryTwin:
         status = real_data.get('Status', '')
         if not status:
             I = self.real_state['current']
-            status = "Charging" if I > 0.01 else ("Discharging" if I < -0.01 else "Idle")
+            status = "Discharging" if I > 0.01 else ("Charging" if I < -0.01 else "Idle")
         self.real_state['status'] = status
 
         if dt > 5.0 or self.internal_twin_soc is None:
             self.internal_twin_soc = self.real_state['soc']
             self.internal_twin_soh = self.real_state['soh']
-            self.internal_twin_temp = self.real_state['temperature']
+            self.internal_twin_temp = self.real_state['temperature'] if self.real_state.get('temperature') is not None else 25.0
             self.V_p = 0.0
             dt = 1.0
 
@@ -130,18 +131,21 @@ class BatteryTwin:
         self.V_p = self.V_p * exp_factor + I * self.R1 * (1 - exp_factor)
         
         # BƯỚC 2: Ước lượng Điện trở trong (R0) & Convergence
+        # V_terminal = OCV - I * R0 - V_p => I * R0 = OCV - V_real - V_p
         if abs(I) > 0.05:
-            estimated_R0 = abs(self.real_state['voltage'] - self.twin_ocv - self.V_p) / abs(I)
+            estimated_R0 = abs(self.twin_ocv - self.real_state['voltage'] - self.V_p) / abs(I)
             estimated_R0 = min(max(estimated_R0, 0.01), 0.2)
             self.R0 = self.R0 * 0.95 + estimated_R0 * 0.05
             
         self.residual = round(abs(self.V_p - prev_Vp), 6)
         self.convergence = "OK" if self.residual < 0.01 else "Converging"
 
-        self.twin_terminal_v = self.twin_ocv + I * self.R0 + self.V_p
+        # Điện áp đầu cực Thevenin 1RC (Xả I > 0: điện áp sụt dưới OCV; Sạc I < 0: điện áp cao hơn OCV)
+        self.twin_terminal_v = self.twin_ocv - I * self.R0 - self.V_p
 
         # BƯỚC 3: Cập nhật SOC, Dung lượng, Chu kỳ, Nhiệt độ
-        self.internal_twin_soc += (I * dt) / self.capacity_As * 100.0
+        # Khi xả (I > 0), SOC phải giảm (-)
+        self.internal_twin_soc -= (I * dt) / self.capacity_As * 100.0
         self.internal_twin_soc = max(0.0, min(100.0, self.internal_twin_soc))
         self.remaining_capacity = round(self.capacity_Ah * (self.internal_twin_soc / 100.0), 3)
 
@@ -154,7 +158,11 @@ class BatteryTwin:
         self.internal_twin_soh = self.internal_twin_soh * 0.99 + soh_from_resistance * 0.01
 
         alpha = 0.05
-        self.internal_twin_temp = self.internal_twin_temp * (1 - alpha) + self.real_state['temperature'] * alpha
+        meas_temp = self.real_state['temperature'] if self.real_state.get('temperature') is not None else 25.0
+        if self.internal_twin_temp is None:
+            self.internal_twin_temp = meas_temp
+        else:
+            self.internal_twin_temp = self.internal_twin_temp * (1 - alpha) + meas_temp * alpha
 
         # BƯỚC 4: Đồng bộ trạng thái Twin State
         self.twin_state['voltage'] = round(self.twin_terminal_v, 3)
@@ -253,11 +261,11 @@ class BatteryTwin:
         preds = []
         for m in horizons:
             dt_s = m * 60
-            f_soc = max(0.0, min(100.0, self.internal_twin_soc + (I_avg * dt_s) / self.capacity_As * 100.0))
+            f_soc = max(0.0, min(100.0, self.internal_twin_soc - (I_avg * dt_s) / self.capacity_As * 100.0))
             f_ocv = interpolate_ocv(f_soc)
             tau = self.R1 * self.C1
             f_Vp = self.V_p * math.exp(-dt_s / tau) + I_avg * self.R1 * (1 - math.exp(-dt_s / tau))
-            f_v = f_ocv + I_avg * self.R0 + f_Vp
+            f_v = f_ocv - I_avg * self.R0 - f_Vp
             lbl = f"{m}m" if m < 60 else f"{m//60}h"
             preds.append({
                 'horizon': lbl,
@@ -280,13 +288,14 @@ class BatteryTwin:
         dt_s = duration_minutes * 60
         I = float(target_current)
         
-        sim_soc = sim_soc + (I * dt_s) / self.capacity_As * 100.0
+        sim_soc = sim_soc - (I * dt_s) / self.capacity_As * 100.0
         sim_soc = max(0.0, min(100.0, sim_soc))
         sim_ocv = interpolate_ocv(sim_soc)
         tau = self.R1 * self.C1
         sim_Vp = sim_Vp * math.exp(-dt_s / tau) + I * self.R1 * (1 - math.exp(-dt_s / tau))
-        sim_v = sim_ocv + I * self.R0 + sim_Vp
-        sim_temp = self.internal_twin_temp + (I * I * self.R0 * duration_minutes * 0.1) # Nhiệt tỏa I^2*R
+        sim_v = sim_ocv - I * self.R0 - sim_Vp
+        base_temp = self.internal_twin_temp if self.internal_twin_temp is not None else 25.0
+        sim_temp = base_temp + (I * I * self.R0 * duration_minutes * 0.1) # Nhiệt tỏa I^2*R
         
         return {
             'target_current': I,
@@ -316,6 +325,11 @@ class BatteryTwin:
             'real_state': self.real_state,
             'twin_state': self.twin_state,
             'errors': self.errors,
+            'validation': self.validation,
+            'error_history': self.error_history,
+            'resistance_history': self.resistance_history[-50:],
+            'capacity_history': self.capacity_history[-50:],
+            'soh_history': self.soh_history[-50:],
             'last_sync_timestamp': self.last_sync_timestamp,
             'sync_status': self.sync_status,
             'sync_rate': self.sync_rate,
@@ -342,6 +356,11 @@ class BatteryTwin:
         self.real_state = data.get('real_state', self.real_state)
         self.twin_state = data.get('twin_state', self.twin_state)
         self.errors = data.get('errors', self.errors)
+        self.validation = data.get('validation', self.validation)
+        self.error_history = data.get('error_history', self.error_history)
+        self.resistance_history = data.get('resistance_history', self.resistance_history)
+        self.capacity_history = data.get('capacity_history', self.capacity_history)
+        self.soh_history = data.get('soh_history', self.soh_history)
         self.last_sync_timestamp = data.get('last_sync_timestamp', time.time())
         self.sync_status = data.get('sync_status', 'Disconnected')
         self.sync_rate = data.get('sync_rate', 0.0)

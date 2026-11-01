@@ -4,7 +4,12 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from flask import Flask, jsonify, request, render_template, Response
 from flask_cors import CORS
-from database import init_db, get_latest_data, get_history, get_all_history, insert_data, save_twin_state, load_twin_state, save_pending_command, pop_pending_command
+from database import (
+    init_db, get_latest_data, get_history, get_all_history, 
+    insert_data, save_twin_state, load_twin_state, 
+    save_pending_command, pop_pending_command,
+    clear_all_history, _use_mongo, _in_memory_history, db
+)
 from twin_model import battery_twin_instance
 import random
 
@@ -37,33 +42,44 @@ def index():
 def receive_telemetry():
     """ Nhận dữ liệu từ ESP32 qua HTTP POST (Thay thế cho MQTT) """
     try:
-        data = request.json
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
+        data = request.get_json(silent=True)
+        if not data or not isinstance(data, dict):
+            return jsonify({"error": "No valid JSON data provided"}), 400
 
-        v = data.get('V', 0)
-        i = data.get('I', 0)
-        t = data.get('T', 0)
-        soc = data.get('SOC', 0)
-        soh = data.get('SOH', 0)
+        v = float(data.get('V') or 0.0)
+        i = float(data.get('I') or 0.0)
+        t = float(data.get('T') or 0.0)
+        soc = float(data.get('SOC') or 0.0)
+        soh = float(data.get('SOH') or 100.0)
         
         # Calculate Power and simple Energy
-        p = data.get('P', round(v * i, 2))
-        energy = data.get('E', round(p * (1/3600), 4)) # Use E from JSON, or assume 1 sec interval
+        p = float(data.get('P', round(v * i, 3)))
+        energy = float(data.get('E', round(p * (1/3600), 4)))
         
-        status = "Discharging" if i > 0 else ("Charging" if i < 0 else "Idle")
+        status = data.get('Status') or ("Discharging" if i > 0.01 else ("Charging" if i < -0.01 else "Idle"))
         
         # AI Metrics from ESP32
-        ai_class = data.get('AI_Class', 0)
-        ai_score = data.get('AI_Score', 0.0)
-        ai_time = data.get('AI_Time', 0)
-        fault_flags = data.get('Fault_Flags', 'NORMAL')
+        ai_class = int(data.get('AI_Class') or 0)
+        ai_score = float(data.get('AI_Score') or 0.0)
+        ai_time = int(data.get('AI_Time') or 0)
+        fault_flags = str(data.get('Fault_Flags') or 'NORMAL')
         
         # Arrays from ESP32 4S
-        cv = data.get('CV', [0.0, 0.0, 0.0, 0.0])
-        csoc = data.get('CSOC', [0, 0, 0, 0])
-        csoh = data.get('CSOH', [100, 100, 100, 100])
-        cai_class = data.get('CAI_Class', [0, 0, 0, 0])
+        cv_raw = data.get('CV', [0.0, 0.0, 0.0, 0.0])
+        cv = [float(x or 0.0) for x in cv_raw] if isinstance(cv_raw, list) else [0.0, 0.0, 0.0, 0.0]
+        while len(cv) < 4: cv.append(0.0)
+        
+        csoc_raw = data.get('CSOC', [0, 0, 0, 0])
+        csoc = [int(x or 0) for x in csoc_raw] if isinstance(csoc_raw, list) else [0, 0, 0, 0]
+        while len(csoc) < 4: csoc.append(0)
+
+        csoh_raw = data.get('CSOH', [100, 100, 100, 100])
+        csoh = [int(x or 100) for x in csoh_raw] if isinstance(csoh_raw, list) else [100, 100, 100, 100]
+        while len(csoh) < 4: csoh.append(100)
+
+        cai_class_raw = data.get('CAI_Class', [0, 0, 0, 0])
+        cai_class = [int(x or 0) for x in cai_class_raw] if isinstance(cai_class_raw, list) else [0, 0, 0, 0]
+        while len(cai_class) < 4: cai_class.append(0)
         
         # Load old state, Sync, and Save state
         _load_state()
@@ -75,9 +91,9 @@ def receive_telemetry():
         # Insert into DB WITH Twin and AI data
         insert_data(
             v, i, p, energy, t, soc, soh, status,
-            twin_ocv=twin_state.get('ocv', 0),
-            twin_r0=twin_state.get('internal_resistance', 0),
-            twin_vp=twin_state.get('polarization_voltage', 0),
+            twin_ocv=twin_state.get('ocv', 0.0),
+            twin_r0=twin_state.get('internal_resistance', 0.0),
+            twin_vp=twin_state.get('polarization_voltage', 0.0),
             ai_class=ai_class,
             ai_score=ai_score,
             ai_time=ai_time,
@@ -106,20 +122,20 @@ def get_dashboard():
     if not data:
         return jsonify({"error": "No data yet"}), 404
     
-    # Giả lập trạng thái tổng quan
-    health_status = "Excellent" if data['soh'] > 90 else ("Warning" if data['soh'] > 70 else "Fault")
+    soh = float(data.get('soh') or 100.0)
+    health_status = "Excellent" if soh > 90 else ("Warning" if soh > 70 else "Fault")
     
     return jsonify({
         "status": "Connected",
         "battery_state": health_status,
-        "voltage": data['voltage'],
-        "current": data['current'],
-        "power": data['power'],
-        "energy": data['energy'],
-        "temperature": data['temperature'],
-        "soc": data['soc'],
-        "soh": data['soh'],
-        "charging_status": data['status'],
+        "voltage": data.get('voltage', 0.0),
+        "current": data.get('current', 0.0),
+        "power": data.get('power', 0.0),
+        "energy": data.get('energy', 0.0),
+        "temperature": data.get('temperature', 0.0),
+        "soc": data.get('soc', 0.0),
+        "soh": soh,
+        "charging_status": data.get('status', 'Idle'),
         "cv": data.get('cv', [0.0, 0.0, 0.0, 0.0]),
         "csoc": data.get('csoc', [0, 0, 0, 0]),
         "csoh": data.get('csoh', [100, 100, 100, 100]),
@@ -144,9 +160,9 @@ def get_edge_ai():
     if not data:
         return jsonify({"error": "No data yet"}), 404
     
-    soh = data['soh']
+    soh = float(data.get('soh') or 100.0)
     cycles = int((soh - 70) * 10) if soh > 70 else 0
-    fail_prob = round((100 - soh) * 0.5, 1)
+    fail_prob = round((100.0 - soh) * 0.5, 1)
     
     rec = "Normal Operation"
     if fail_prob > 10: rec = "Schedule Maintenance"
@@ -163,17 +179,7 @@ def get_edge_ai():
 def export_csv():
     import io
     import csv
-    docs = get_all_history()
-
-    # Map AI class số → tên nhãn (để train model)
-    AI_LABEL_MAP = {
-        0: 'Normal',
-        1: 'Over-voltage',
-        2: 'Under-voltage',
-        3: 'Over-current',
-        4: 'Over-heat',
-        5: 'Cell-Imbalance'
-    }
+    docs = get_all_history(limit=5000)
 
     si = io.StringIO()
     writer = csv.writer(si)
@@ -190,17 +196,21 @@ def export_csv():
     ])
 
     for doc in docs:
-        cv   = doc.get('cv',   [0, 0, 0, 0])
-        csoc = doc.get('csoc', [0, 0, 0, 0])
-        ai_class = doc.get('ai_class', 0)
-        
+        cv_raw = doc.get('cv') or [0.0, 0.0, 0.0, 0.0]
+        cv = [float(x or 0.0) for x in cv_raw] if isinstance(cv_raw, list) else [0.0, 0.0, 0.0, 0.0]
+        while len(cv) < 4: cv.append(0.0)
+
+        csoc_raw = doc.get('csoc') or [0, 0, 0, 0]
+        csoc = [int(x or 0) for x in csoc_raw] if isinstance(csoc_raw, list) else [0, 0, 0, 0]
+        while len(csoc) < 4: csoc.append(0)
+
         max_v    = max(cv) if cv else 0.0
         min_v    = min(cv) if cv else 0.0
         delta_v  = max_v - min_v if cv else 0.0
-        curr     = abs(doc.get('current', 0.0))
-        temp     = doc.get('temperature', 0.0)
-        pack_v   = doc.get('voltage', 0.0)
-        pack_soc = doc.get('soc', 0)
+        curr     = abs(float(doc.get('current') or 0.0))
+        temp     = float(doc.get('temperature') or 0.0)
+        pack_v   = float(doc.get('voltage') or 0.0)
+        pack_soc = float(doc.get('soc') or 0.0)
 
         # 1. Thu thập toàn bộ cờ lỗi đang xảy ra đồng thời (Fault_Flags)
         flags = []
@@ -227,37 +237,31 @@ def export_csv():
         # Priority 6: Normal
         if doc.get('label'):
             label = doc.get('label')
-        elif 'OV' in flags:
+        elif 'OV' in flags or 'OV' in doc_flags:
             label = 'Over-voltage'
-        elif 'UV' in flags:
+        elif 'UV' in flags or 'UV' in doc_flags:
             label = 'Under-voltage'
-        elif 'OC' in flags:
+        elif 'OC' in flags or 'OC' in doc_flags:
             label = 'Over-current'
-        elif 'OT' in flags:
+        elif 'OT' in flags or 'OT' in doc_flags:
             label = 'Over-temperature'
-        elif 'CI' in flags:
+        elif 'CI' in flags or 'CI' in doc_flags:
             label = 'Cell-Imbalance'
         else:
             label = 'Normal'
 
         writer.writerow([
             doc.get('timestamp', ''),
-            doc.get('voltage', 0),
-            doc.get('current', 0),
-            doc.get('temperature', 0),
-            doc.get('soc', 0),
-            doc.get('soh', 0),
-            doc.get('twin_ocv', 0),
-            doc.get('twin_r0', 0),
-            doc.get('twin_vp', 0),
-            cv[0] if len(cv) > 0 else 0,
-            cv[1] if len(cv) > 1 else 0,
-            cv[2] if len(cv) > 2 else 0,
-            cv[3] if len(cv) > 3 else 0,
-            csoc[0] if len(csoc) > 0 else 0,
-            csoc[1] if len(csoc) > 1 else 0,
-            csoc[2] if len(csoc) > 2 else 0,
-            csoc[3] if len(csoc) > 3 else 0,
+            pack_v,
+            float(doc.get('current') or 0.0),
+            temp,
+            pack_soc,
+            float(doc.get('soh') or 0.0),
+            float(doc.get('twin_ocv') or 0.0),
+            float(doc.get('twin_r0') or 0.0),
+            float(doc.get('twin_vp') or 0.0),
+            cv[0], cv[1], cv[2], cv[3],
+            csoc[0], csoc[1], csoc[2], csoc[3],
             label,
             doc_flags
         ])
@@ -269,12 +273,25 @@ def export_csv():
         headers={"Content-disposition": "attachment; filename=battery_dataset_4s.csv"}
     )
 
-
-@app.route('/api/clear-telemetry', methods=['GET'])
+@app.route('/api/clear-telemetry', methods=['GET', 'POST'])
 def clear_telemetry():
-    from database import clear_all_history
-    clear_all_history()
-    return "<h1>Database Cleared Successfully!</h1><p>You can now close this tab and collect new 4S data.</p>"
+    """Xóa dữ liệu (Hỗ trợ POST để an toàn và GET với nút xác nhận)"""
+    if request.method == 'POST' or request.args.get('confirm') == 'yes':
+        clear_all_history()
+        return "<h1>Database Cleared Successfully!</h1><p>Dữ liệu lịch sử đã được xóa sạch. Bạn có thể bắt đầu thu thập dữ liệu mới.</p>"
+    
+    return """
+    <div style="font-family: Arial, sans-serif; padding: 30px; text-align: center;">
+        <h2>XÁC NHẬN XÓA TOÀN BỘ CƠ SỞ DỮ LIỆU TELEMETRY?</h2>
+        <p style="color: red;">Cảnh báo: Hành động này không thể hoàn tác.</p>
+        <form method="POST">
+            <button type="submit" style="background: #e53e3e; color: white; border: none; padding: 12px 24px; font-size: 16px; border-radius: 6px; cursor: pointer;">
+                Xác nhận Xóa Ngay
+            </button>
+            <a href="/" style="margin-left: 15px; color: #4a5568;">Hủy bỏ</a>
+        </form>
+    </div>
+    """
 
 @app.route('/api/history', methods=['GET'])
 def get_full_history():
@@ -283,15 +300,16 @@ def get_full_history():
 
 @app.route('/api/command', methods=['POST'])
 def send_cmd():
-    cmd = request.json.get('command')
-    capacity = request.json.get('capacity')
+    req_json = request.get_json(silent=True) or {}
+    cmd = req_json.get('command')
+    capacity = req_json.get('capacity')
     
-    if cmd and cmd.startswith('SET_PIN:'):
-        # Lưu vào DB để chờ ESP32 kéo về
-        save_pending_command(cmd)
+    if cmd:
+        # Lưu vào hàng đợi để chờ ESP32 kéo về qua HTTP POST telemetry
+        save_pending_command(str(cmd))
         
-        # Cập nhật ngay lập tức Digital Twin trên backend
-        if capacity:
+        # Cập nhật ngay lập tức Digital Twin trên backend nếu có cấu hình dung lượng
+        if cmd.startswith('SET_PIN:') and capacity:
             try:
                 cap = float(capacity)
                 _load_state()
@@ -300,7 +318,7 @@ def send_cmd():
                 soc = battery_twin_instance.internal_twin_soc
                 if soc is None:
                     latest = get_latest_data()
-                    soc = latest.get('soc', 100.0) if latest else 100.0
+                    soc = float(latest.get('soc', 100.0) if latest else 100.0)
                     battery_twin_instance.internal_twin_soc = soc
                 battery_twin_instance.remaining_capacity = round(cap * (soc / 100.0), 3)
                 _save_state()
@@ -311,9 +329,17 @@ def send_cmd():
 
 @app.route('/api/simulate', methods=['POST'])
 def simulate_scenario():
-    req = request.json
-    current = req.get("current", 0.0)
-    duration = req.get("duration", 30)
+    req = request.get_json(silent=True) or {}
+    try:
+        current = float(req.get("current", 0.0) or 0.0)
+    except (TypeError, ValueError):
+        current = 0.0
+
+    try:
+        duration = float(req.get("duration", 30) or 30)
+    except (TypeError, ValueError):
+        duration = 30.0
+
     _load_state()
     res = battery_twin_instance.simulate_what_if(current, duration)
     return jsonify(res)
@@ -336,12 +362,18 @@ def test_connection():
         # Mask password for security
         masked = mongo_uri[:20] + '...' if len(mongo_uri) > 20 else mongo_uri
         
-        # Try a simple DB operation
-        from database import db
-        count = db['battery_data'].count_documents({})
+        count = 0
+        if _use_mongo and db is not None:
+            try:
+                count = db['battery_data'].count_documents({})
+            except Exception as ex:
+                count = f"Mongo error: {ex}"
+        else:
+            count = len(_in_memory_history)
         
         return jsonify({
             "status": "OK",
+            "mongo_connected": _use_mongo,
             "mongo_uri_set": mongo_uri != 'NOT SET',
             "mongo_uri_preview": masked,
             "record_count": count,
