@@ -82,20 +82,29 @@ body {
   width: 280px; 
   display: flex; 
   flex-direction: column; 
-  padding: 2.5rem 1.5rem; 
+  padding: 1.5rem 1.2rem; 
   flex-shrink: 0; 
   position: relative;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
-.logo { display: flex; align-items: center; gap: 15px; margin-bottom: 3.5rem; }
+.sidebar::-webkit-scrollbar {
+  width: 4px;
+}
+.sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+.logo { display: flex; align-items: center; gap: 12px; margin-bottom: 1.5rem; }
 .logo h2 { font-weight: 600; font-size: 1.25rem; line-height: 1.2; letter-spacing: 0.5px;}
 .gradient-text { background: linear-gradient(135deg, var(--neon-blue), var(--emerald)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 
-.menu { display: flex; flex-direction: column; gap: 0.6rem; flex-grow: 1; }
+.menu { display: flex; flex-direction: column; gap: 0.4rem; flex-grow: 1; }
 .menu-item {
-  text-decoration: none; color: var(--text-muted); padding: 1rem 1.2rem; border-radius: 14px;
-  display: flex; align-items: center; gap: 15px; font-weight: 500; font-size: 0.95rem; 
+  text-decoration: none; color: var(--text-muted); padding: 0.75rem 1rem; border-radius: 12px;
+  display: flex; align-items: center; gap: 12px; font-weight: 500; font-size: 0.9rem; 
   transition: var(--transition); cursor: pointer; border: 1px solid transparent;
 }
 

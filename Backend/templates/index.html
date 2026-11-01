@@ -27,7 +27,7 @@
                 <a class="menu-item" data-target="validation-page"><i data-lucide="check-circle"></i> Đánh giá Sai số Mô hình</a>
                 <a class="menu-item" data-target="rul-page"><i data-lucide="hourglass"></i> Dự đoán Tuổi thọ (RUL)</a>
                 <a class="menu-item" data-target="data-page"><i data-lucide="database"></i> Dữ liệu & Thực nghiệm</a>
-                <a class="menu-item" data-target="config-page"><i data-lucide="settings"></i> Cấu hình Hệ thống</a>
+                <a class="menu-item" data-target="config-page"><i data-lucide="settings"></i> Cài đặt & Cấu hình</a>
             </nav>
         </aside>
 
@@ -98,7 +98,7 @@
                     <!-- Edge AI -->
                     <div class="glass-panel p-4">
                         <h3 class="section-title text-purple"><i data-lucide="brain"></i> Trí tuệ nhân tạo (Edge AI)</h3>
-                        <div class="twin-item"><span>Trạng thái AI</span><strong class="text-cyan">Đang chạy (ESP32-S3)</strong></div>
+                        <div class="twin-item"><span>Trạng thái AI</span><strong class="text-cyan" style="white-space: nowrap;">ESP32-S3 (Đang chạy)</strong></div>
                         <div class="twin-item"><span>Phát hiện lỗi</span><strong id="ov-anomaly">Bình thường</strong></div>
                         <div class="twin-item"><span>Điểm bất thường</span><strong id="ov-ascore">0.00</strong></div>
                         <div class="twin-item"><span>Thời gian suy luận</span><strong id="ov-atime">1 ms</strong></div>
@@ -179,8 +179,8 @@
                         <div style="text-align:center; padding: 20px 0;">
                             <div class="status-badge badge-blue" style="font-size: 1.1rem; padding: 10px 20px;"><div class="pulse-dot"></div> <span id="dt-sync-status">Đã đồng bộ</span></div>
                         </div>
-                        <div class="twin-item"><span>Điện áp thật ($V_{meas}$)</span><strong id="dt-sync-pv">0 V</strong></div>
-                        <div class="twin-item"><span>Điện áp số ($V_{twin}$)</span><strong id="dt-sync-tv" class="text-blue">0 V</strong></div>
+                        <div class="twin-item"><span>Điện áp thật (V_meas)</span><strong id="dt-sync-pv">0 V</strong></div>
+                        <div class="twin-item"><span>Điện áp số (V_twin)</span><strong id="dt-sync-tv" class="text-blue">0 V</strong></div>
                         <div class="twin-item"><span>Dư số sai lệch (Residual)</span><strong id="dt-sync-res" class="text-orange">0 V</strong></div>
                         <div class="twin-item"><span>Sai số tương đối</span><strong id="dt-sync-err" class="text-red">0 %</strong></div>
                         <div class="twin-item"><span>Độ trễ truyền tin</span><strong id="dt-sync-age">0.0 s</strong></div>
@@ -191,7 +191,7 @@
                         <h3 class="section-title text-blue"><i data-lucide="cpu"></i> Thực thể số (Digital Twin)</h3>
                         <div class="battery-visual-container"><div class="battery-hologram"><div class="battery-grid"></div><div class="battery-fill-glow" id="dt-tb-fill"></div><div class="scanline"></div></div></div>
                         <div class="twin-item"><span>Điện áp hở mạch (OCV)</span><strong id="dt-tb-ocv">0 V</strong></div>
-                        <div class="twin-item"><span>Điện áp đầu cực ($V_{term}$)</span><strong id="dt-tb-tv" class="text-blue">0 V</strong></div>
+                        <div class="twin-item"><span>Điện áp đầu cực (V_term)</span><strong id="dt-tb-tv" class="text-blue">0 V</strong></div>
                         <div class="twin-item"><span>Mức pin mô hình (SOC)</span><strong id="dt-tb-soc" class="text-green">0 %</strong></div>
                     </div>
                 </div>
@@ -202,12 +202,12 @@
                         <h3 class="section-title"><i data-lucide="settings"></i> Thông số Mạch ECM Thevenin 1RC</h3>
                         <div class="grid-2">
                             <div>
-                                <div class="twin-item"><span>Nội trở thuần ($R_0$)</span><strong id="dt-p-r0">0 mΩ</strong></div>
-                                <div class="twin-item"><span>Điện trở phân cực ($R_1$)</span><strong id="dt-p-r1">0 mΩ</strong></div>
+                                <div class="twin-item"><span>Nội trở thuần (R0)</span><strong id="dt-p-r0">0 mΩ</strong></div>
+                                <div class="twin-item"><span>Điện trở phân cực (R1)</span><strong id="dt-p-r1">0 mΩ</strong></div>
                             </div>
                             <div>
-                                <div class="twin-item"><span>Điện dung phân cực ($C_1$)</span><strong id="dt-p-c1">0 F</strong></div>
-                                <div class="twin-item"><span>Điện áp phân cực ($V_p$)</span><strong id="dt-p-vp">0 V</strong></div>
+                                <div class="twin-item"><span>Điện dung phân cực (C1)</span><strong id="dt-p-c1">0 F</strong></div>
+                                <div class="twin-item"><span>Điện áp phân cực (Vp)</span><strong id="dt-p-vp">0 V</strong></div>
                             </div>
                         </div>
                         <div class="twin-item mt-2"><span>Mô hình toán học</span><strong>Thevenin 1RC</strong></div>
@@ -227,14 +227,14 @@
                                 <label>Thời gian (Phút)</label>
                                 <input type="number" id="sim-duration" value="30">
                             </div>
-                            <button class="btn-primary" onclick="runWhatIf()" style="height:42px; margin-bottom:15px;">Chạy Mô phỏng</button>
+                            <button class="btn-primary" onclick="runWhatIf()" style="height:42px; margin-bottom:15px; white-space: nowrap; padding: 0 18px; min-width: 140px;">Chạy Mô phỏng</button>
                         </div>
                         <div id="sim-results" class="hidden mt-2 p-3" style="background: rgba(0,0,0,0.3); border-radius: 8px;">
                             <div class="grid-4">
                                 <div><small class="text-muted">Điện áp dự báo</small><br><strong id="sim-r-v" class="text-blue">0V</strong></div>
                                 <div><small class="text-muted">SOC dự báo</small><br><strong id="sim-r-soc" class="text-green">0%</strong></div>
                                 <div><small class="text-muted">Nhiệt độ tỏa ra</small><br><strong id="sim-r-t" class="text-orange">0°C</strong></div>
-                                <div><small class="text-muted">Điện áp $V_p$</small><br><strong id="sim-r-vp">0V</strong></div>
+                                <div><small class="text-muted">Điện áp Vp</small><br><strong id="sim-r-vp">0V</strong></div>
                             </div>
                         </div>
                     </div>
@@ -335,10 +335,10 @@
                 </div>
 
                 <div class="grid-2" style="margin-top: 1.5rem;">
-                    <div class="glass-panel p-4"><h4 class="chart-title">So sánh Điện áp: Thực tế ($V_{meas}$) vs Mô hình ($V_{twin}$)</h4><div class="chart-md"><canvas id="c-val-volt"></canvas></div></div>
+                    <div class="glass-panel p-4"><h4 class="chart-title">So sánh Điện áp: Thực tế (V_meas) vs Mô hình (V_twin)</h4><div class="chart-md"><canvas id="c-val-volt"></canvas></div></div>
                     <div class="glass-panel p-4"><h4 class="chart-title">So sánh SOC: Phần cứng vs Mô hình Digital Twin</h4><div class="chart-md"><canvas id="c-val-soc"></canvas></div></div>
                     <div class="glass-panel p-4"><h4 class="chart-title">Dư số Sai lệch Điện áp Residual (V)</h4><div class="chart-md"><canvas id="c-val-err"></canvas></div></div>
-                    <div class="glass-panel p-4"><h4 class="chart-title">Xu hướng Ước lượng Nội trở thuần $R_0$ (mΩ)</h4><div class="chart-md"><canvas id="c-val-res"></canvas></div></div>
+                    <div class="glass-panel p-4"><h4 class="chart-title">Xu hướng Ước lượng Nội trở thuần R0 (mΩ)</h4><div class="chart-md"><canvas id="c-val-res"></canvas></div></div>
                 </div>
             </div>
 

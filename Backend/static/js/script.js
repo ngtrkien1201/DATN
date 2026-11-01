@@ -251,7 +251,8 @@ async function updateTwin() {
                 
                 const cellEl = document.getElementById(`ov-c${i+1}`);
                 if (cellEl) {
-                    cellEl.innerHTML = `<span class="${colorClass}">${c_v} V | ${c_soc}% | C${c_ai}</span>`;
+                    const c_status = c_ai === 0 ? "OK" : (`Lỗi C${c_ai}`);
+                    cellEl.innerHTML = `<span class="${colorClass}">${c_v} V | ${c_soc}% | ${c_status}</span>`;
                 }
             }
         }
