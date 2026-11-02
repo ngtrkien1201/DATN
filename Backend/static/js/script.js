@@ -118,7 +118,7 @@ function createChart(canvasId, datasets, isDual = false) {
 function initCharts() {
     // Overview
     charts.overview = createChart('c-overview', [
-        { label: 'Điện áp bộ pin (V)', data: [], borderColor: '#60a5fa', backgroundColor: 'rgba(96,165,250,.08)', fill: true, tension: 0.35, pointRadius: 0, borderWidth: 2 }
+        { label: 'Điện áp Pack (V)', data: [], borderColor: '#60a5fa', backgroundColor: 'rgba(96,165,250,.08)', fill: true, tension: 0.35, pointRadius: 0, borderWidth: 2 }
     ]);
     
     // Live Monitoring
@@ -135,7 +135,7 @@ function initCharts() {
     
     charts.valSoc = createChart('c-val-soc', [
         { label: 'SOC Phần cứng', data: [], borderColor: '#3b82f6', tension: 0.4, pointRadius: 0, borderWidth: 2 },
-        { label: 'SOC mô hình', data: [], borderColor: '#10b981', tension: 0.4, pointRadius: 0, borderWidth: 2, borderDash: [6, 4] }
+        { label: 'SOC Digital Twin', data: [], borderColor: '#10b981', tension: 0.4, pointRadius: 0, borderWidth: 2, borderDash: [6, 4] }
     ], true);
     
     charts.valErr = createChart('c-val-err', [{ data: [], borderColor: '#ef4444', backgroundColor: '#ef444422', fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 }]);
@@ -153,39 +153,39 @@ function pushData(chart, datasetIndex, x, y) {
 
 // Bảng ánh xạ nhãn chuyên ngành sang song ngữ dễ hiểu
 const STATUS_MODE_MAP = {
-    "Discharging": "Đang xả",
-    "Charging": "Đang sạc",
-    "Idle": "Chờ"
+    "Discharging": "Đang xả (Discharging)",
+    "Charging": "Đang sạc (Charging)",
+    "Idle": "Chờ (Idle)"
 };
 
 const SYNC_STATUS_MAP = {
-    "Synchronized": "Đã đồng bộ",
-    "Syncing": "Đang đồng bộ...",
-    "Disconnected": "Mất kết nối",
-    "Connection Weak": "Tín hiệu yếu"
+    "Synchronized": "Đã đồng bộ (Synchronized)",
+    "Syncing": "Đang đồng bộ (Syncing)...",
+    "Disconnected": "Mất kết nối (Disconnected)",
+    "Connection Weak": "Tín hiệu yếu (Weak)"
 };
 
 const AI_CLASS_MAP_VN = {
-    "Normal Operation": "Bình thường",
-    "Normal": "Bình thường",
-    "Over-voltage": "Quá áp",
-    "Under-voltage": "Thấp áp",
-    "Over-current": "Quá dòng",
-    "Over-heat": "Quá nhiệt",
-    "Cell Imbalance": "Lệch cell",
-    "Cell-Imbalance": "Lệch cell"
+    "Normal Operation": "Bình thường (Normal)",
+    "Normal": "Bình thường (Normal)",
+    "Over-voltage": "Quá áp (Over-voltage)",
+    "Under-voltage": "Sụt áp (Under-voltage)",
+    "Over-current": "Quá dòng (Over-current)",
+    "Over-heat": "Quá nhiệt (Over-temperature)",
+    "Cell Imbalance": "Lệch cell (Cell Imbalance)",
+    "Cell-Imbalance": "Lệch cell (Cell Imbalance)"
 };
 
 const AI_STATUS_LABEL_MAP = {
-    "Normal": "Bình thường",
-    "Warning": "Cảnh báo",
-    "Alert": "Nguy hiểm"
+    "Normal": "Bình thường (Normal)",
+    "Warning": "Cảnh báo (Warning)",
+    "Alert": "Nguy hiểm (Alert)"
 };
 
 const AGING_STAGE_MAP = {
-    "Normal": "Bình thường",
-    "Degraded": "Suy giảm",
-    "End of Life": "Cuối vòng đời"
+    "Normal": "Bình thường (Normal)",
+    "Degraded": "Suy giảm (Degraded)",
+    "End of Life": "Cuối vòng đời (EOL)"
 };
 
 function formatLatency(ms) {
@@ -210,7 +210,7 @@ function updateAlerts(d, timeStr) {
     
     if (d.edge_ai && d.edge_ai.anomaly_score >= 0.7) {
         const faultName = AI_CLASS_MAP_VN[d.edge_ai.anomaly_class] || d.edge_ai.anomaly_class;
-        alertsHtml += `<div class="alert-item alert-danger"><i data-lucide="alert-triangle"></i> AI biên phát hiện bất thường "${faultName}" (điểm ${d.edge_ai.anomaly_score.toFixed(2)}) lúc ${timeStr}.</div>`;
+        alertsHtml += `<div class="alert-item alert-danger"><i data-lucide="alert-triangle"></i> Cảnh báo Edge AI: Phát hiện bất thường "${faultName}" (Score: ${d.edge_ai.anomaly_score.toFixed(2)}) lúc ${timeStr}.</div>`;
     } else if (d.edge_ai && d.edge_ai.anomaly_score >= 0.3) {
         alertsHtml += `<div class="alert-item alert-warning"><i data-lucide="alert-circle"></i> Chú ý: Chỉ số bất thường tăng nhẹ (${d.edge_ai.anomaly_score.toFixed(2)}). Hệ thống tiếp tục theo dõi.</div>`;
     }
@@ -230,7 +230,7 @@ function updateAlerts(d, timeStr) {
     }
     
     if (alertsHtml === '') {
-        alertsHtml = `<div class="alert-item alert-success"><i data-lucide="check-circle-2"></i> Hệ thống đang vận hành ổn định. Dữ liệu bản sao số và AI biên đã đồng bộ (${timeStr}).</div>`;
+        alertsHtml = `<div class="alert-item alert-success"><i data-lucide="check-circle-2"></i> Hệ thống đang vận hành ổn định. Dữ liệu Digital Twin và Edge AI đồng bộ tốt (${timeStr}).</div>`;
     }
     
     alertContainer.innerHTML = alertsHtml;
