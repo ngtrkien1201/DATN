@@ -54,43 +54,23 @@ menuItems.forEach(item => {
 // 2. SCENARIO SIMULATION (WHAT-IF SANDBOX)
 // ============================================================
 async function runWhatIf() {
-    const current = Number(document.getElementById('sim-current').value);
-    const duration = Number(document.getElementById('sim-duration').value);
-    const button = document.getElementById('sim-run');
-    const message = document.getElementById('sim-message');
-    const results = document.getElementById('sim-results');
-    if (!Number.isFinite(current) || !Number.isFinite(duration) || duration <= 0) {
-        message.innerText = 'Hãy nhập dòng điện hợp lệ và thời gian lớn hơn 0.';
-        message.className = 'text-sm text-orange';
-        return;
-    }
-    button.disabled = true;
-    message.innerText = 'Đang tính toán…';
-    message.className = 'text-sm text-muted';
+    const current = document.getElementById('sim-current').value;
+    const duration = document.getElementById('sim-duration').value;
+    
     try {
-        const res = await fetch('/api/simulate', {
+        const res = await fetch(`/api/simulate`, { 
             method: 'POST', 
             headers: {'Content-Type': 'application/json'}, 
-            body: JSON.stringify({current, duration})
+            body: JSON.stringify({current: parseFloat(current), duration: parseInt(duration)}) 
         });
         const data = await res.json();
-        if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
-        results.classList.remove('hidden');
+        
+        document.getElementById('sim-results').classList.remove('hidden');
         document.getElementById('sim-r-v').innerText = data.sim_voltage + ' V';
         document.getElementById('sim-r-soc').innerText = data.sim_soc + ' %';
         document.getElementById('sim-r-t').innerText = data.sim_temp + ' °C';
         document.getElementById('sim-r-vp').innerText = data.sim_vp + ' V';
-        message.innerText = 'Đã tính xong kịch bản.';
-        message.className = 'text-sm text-green';
-    } catch (e) {
-        results.classList.add('hidden');
-        message.innerText = e.message === 'Twin Engine chưa khởi động'
-            ? 'Cần có dữ liệu pin trước khi chạy mô phỏng.'
-            : 'Không thể chạy mô phỏng. Hãy kiểm tra kết nối rồi thử lại.';
-        message.className = 'text-sm text-red';
-    } finally {
-        button.disabled = false;
-    }
+    } catch (e) { alert("Lỗi khi chạy mô phỏng kịch bản!"); }
 }
 
 // ============================================================
@@ -122,40 +102,23 @@ const commonOptions = {
 function createChart(canvasId, datasets, isDual = false) {
     const el = document.getElementById(canvasId);
     if (!el) return null;
-    const showChartFallback = () => {
-        const message = document.createElement('p');
-        message.className = 'chart-fallback';
-        message.textContent = 'Không tải được thư viện biểu đồ. Hãy kiểm tra kết nối mạng.';
-        el.insertAdjacentElement('afterend', message);
-        el.hidden = true;
-    };
-    if (!window.Chart) {
-        showChartFallback();
-        return null;
-    }
     
     let opt = JSON.parse(JSON.stringify(commonOptions));
     if (isDual) {
         opt.plugins.legend = { display: true, labels: { color: '#94a3b8', font: { size: 11 } } };
     }
     
-    try {
-        return new Chart(el.getContext('2d'), {
-            type: 'line',
-            data: { datasets: datasets },
-            options: opt
-        });
-    } catch (error) {
-        console.error(`Chart initialization failed (${canvasId}):`, error);
-        showChartFallback();
-        return null;
-    }
+    return new Chart(el.getContext('2d'), {
+        type: 'line',
+        data: { datasets: datasets },
+        options: opt
+    });
 }
 
 function initCharts() {
     // Overview
     charts.overview = createChart('c-overview', [
-        { label: 'Điện áp bộ pin (V)', data: [], borderColor: '#60a5fa', backgroundColor: 'rgba(96,165,250,.08)', fill: true, tension: 0.35, pointRadius: 0, borderWidth: 2 }
+        { label: 'Điện áp Pack (V)', data: [], borderColor: '#60a5fa', backgroundColor: 'rgba(96,165,250,.08)', fill: true, tension: 0.35, pointRadius: 0, borderWidth: 2 }
     ]);
     
     // Live Monitoring
@@ -166,13 +129,13 @@ function initCharts() {
     
     // Validation
     charts.valVolt = createChart('c-val-volt', [
-        { label: 'Đo thực tế', data: [], borderColor: '#3b82f6', tension: 0.4, pointRadius: 0, borderWidth: 2 },
-        { label: 'Mô hình số', data: [], borderColor: '#10b981', tension: 0.4, pointRadius: 0, borderWidth: 2, borderDash: [6, 4] }
+        { label: 'Thực tế (V_meas)', data: [], borderColor: '#3b82f6', tension: 0.4, pointRadius: 0, borderWidth: 2 },
+        { label: 'Mô hình (V_twin)', data: [], borderColor: '#10b981', tension: 0.4, pointRadius: 0, borderWidth: 2, borderDash: [6, 4] }
     ], true);
     
     charts.valSoc = createChart('c-val-soc', [
-        { label: 'Mức pin đo được', data: [], borderColor: '#3b82f6', tension: 0.4, pointRadius: 0, borderWidth: 2 },
-        { label: 'Mức pin mô hình số', data: [], borderColor: '#10b981', tension: 0.4, pointRadius: 0, borderWidth: 2, borderDash: [6, 4] }
+        { label: 'SOC Phần cứng', data: [], borderColor: '#3b82f6', tension: 0.4, pointRadius: 0, borderWidth: 2 },
+        { label: 'SOC Digital Twin', data: [], borderColor: '#10b981', tension: 0.4, pointRadius: 0, borderWidth: 2, borderDash: [6, 4] }
     ], true);
     
     charts.valErr = createChart('c-val-err', [{ data: [], borderColor: '#ef4444', backgroundColor: '#ef444422', fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 }]);
@@ -190,44 +153,48 @@ function pushData(chart, datasetIndex, x, y) {
 
 // Bảng ánh xạ nhãn chuyên ngành sang song ngữ dễ hiểu
 const STATUS_MODE_MAP = {
-    "Discharging": "Đang xả",
-    "Charging": "Đang sạc",
-    "Idle": "Chờ"
+    "Discharging": "Đang xả (Discharging)",
+    "Charging": "Đang sạc (Charging)",
+    "Idle": "Chờ (Idle)"
 };
 
 const SYNC_STATUS_MAP = {
-    "Synchronized": "Đã đồng bộ",
-    "Syncing": "Đang đồng bộ…",
-    "Disconnected": "Mất kết nối",
-    "Connection Weak": "Tín hiệu yếu"
+    "Synchronized": "Đã đồng bộ (Synchronized)",
+    "Syncing": "Đang đồng bộ (Syncing)...",
+    "Disconnected": "Mất kết nối (Disconnected)",
+    "Connection Weak": "Tín hiệu yếu (Weak)"
 };
 
 const AI_CLASS_MAP_VN = {
-    "Normal Operation": "Bình thường",
-    "Normal": "Bình thường",
-    "Over-voltage": "Quá áp",
-    "Under-voltage": "Thấp áp",
-    "Over-current": "Quá dòng",
-    "Over-heat": "Quá nhiệt",
-    "Cell Imbalance": "Lệch điện áp cell",
-    "Cell-Imbalance": "Lệch điện áp cell"
+    "Normal Operation": "Bình thường (Normal)",
+    "Normal": "Bình thường (Normal)",
+    "Over-voltage": "Quá áp (Over-voltage)",
+    "Under-voltage": "Sụt áp (Under-voltage)",
+    "Over-current": "Quá dòng (Over-current)",
+    "Over-heat": "Quá nhiệt (Over-temperature)",
+    "Cell Imbalance": "Lệch cell (Cell Imbalance)",
+    "Cell-Imbalance": "Lệch cell (Cell Imbalance)"
 };
 
 const AI_STATUS_LABEL_MAP = {
-    "Normal": "Bình thường",
-    "Warning": "Cảnh báo",
-    "Alert": "Nguy hiểm"
+    "Normal": "Bình thường (Normal)",
+    "Warning": "Cảnh báo (Warning)",
+    "Alert": "Nguy hiểm (Alert)"
 };
 
 const AGING_STAGE_MAP = {
-    "Normal": "Bình thường",
-    "Degraded": "Suy giảm",
-    "End of Life": "Cuối vòng đời"
+    "Normal": "Bình thường (Normal)",
+    "Degraded": "Suy giảm (Degraded)",
+    "End of Life": "Cuối vòng đời (EOL)"
 };
 
-function formatReceiveInterval(ms) {
+function formatLatency(ms) {
     if (ms === undefined || ms === null || isNaN(ms)) return "--";
-    return `${(ms / 1000).toFixed(1)} s`;
+    const s = ms / 1000;
+    if (s < 5) return "Thời gian thực (< 5s)";
+    if (s < 60) return `${s.toFixed(1)} s trước`;
+    if (s < 3600) return `${Math.floor(s / 60)} phút trước`;
+    return `> ${(s / 3600).toFixed(1)} giờ trước`;
 }
 
 function updateAlerts(d, timeStr) {
@@ -274,8 +241,6 @@ function updateAlerts(d, timeStr) {
 // 4. DATA POLLING & UI UPDATE
 // ============================================================
 let isFetching = false;
-let lastChartIteration = null;
-let lastLiveRowIteration = null;
 
 async function updateTwin() {
     if (isFetching) return;
@@ -289,8 +254,7 @@ async function updateTwin() {
         const timeStr = now.toLocaleTimeString();
 
         // ------------------ GLOBAL STATUS BAR ------------------
-        if (d.metadata?.twin_id) document.getElementById('gb-id').innerText = d.metadata.twin_id;
-        document.getElementById('gb-time').innerText = d.sync_metrics.last_update || timeStr;
+        document.getElementById('gb-time').innerText = timeStr;
         const isOnline = d.sync_metrics.status !== "Disconnected";
         document.getElementById('gb-sys').innerText = isOnline ? "Đang nhận dữ liệu" : "Mất tín hiệu";
         document.getElementById('gb-sys').className = isOnline ? "text-green" : "text-red";
@@ -301,53 +265,14 @@ async function updateTwin() {
         document.getElementById('gb-mqtt').className = "text-green";
         
         document.getElementById('gb-mode').innerText = STATUS_MODE_MAP[d.real.status] || d.real.status;
-
-        // Do not present the model's zero-initialized state as real measurements.
-        if (Number(d.diagnostics?.model_iteration || 0) === 0) {
-            document.getElementById('gb-mode').innerText = 'Chưa có dữ liệu';
-            [
-                'ov-v', 'ov-i', 'ov-t', 'ov-p', 'ov-soc', 'ov-soh', 'ov-cycle',
-                'ov-c1', 'ov-c2', 'ov-c3', 'ov-c4', 'ov-tv', 'ov-tsoc', 'ov-err',
-                'dt-pb-v', 'dt-pb-i', 'dt-pb-soc', 'dt-sync-pv', 'dt-sync-tv',
-                'dt-sync-res', 'dt-sync-err', 'dt-sync-age', 'dt-tb-ocv', 'dt-tb-tv',
-                'dt-tb-soc', 'dt-p-r0', 'dt-p-r1', 'dt-p-c1', 'dt-p-vp',
-                'val-v-mae', 'val-v-rmse', 'val-v-max', 'val-soc-mae',
-                'rul-cycles', 'rul-soh-cap', 'rul-soh-res', 'rul-fade', 'rul-growth', 'rul-est-cap'
-            ].forEach(id => {
-                const element = document.getElementById(id);
-                if (element) element.innerText = '--';
-            });
-            ['dt-pb-fill', 'dt-tb-fill'].forEach(id => {
-                const element = document.getElementById(id);
-                if (element) element.style.height = '0%';
-            });
-            ['ov-anomaly', 'ov-ascore', 'ov-atime', 'ai-score', 'ai-class', 'ai-time', 'ai-conf', 'rul-stage']
-                .forEach(id => {
-                    const element = document.getElementById(id);
-                    if (element) element.innerText = '--';
-                });
-            const aiStatus = document.getElementById('ai-status');
-            if (aiStatus) aiStatus.innerText = 'Đang chờ dữ liệu';
-            const stageBadge = document.getElementById('rul-stage');
-            if (stageBadge) stageBadge.className = 'status-badge badge-blue';
-            const twinStatus = document.getElementById('dt-sync-status');
-            if (twinStatus) twinStatus.innerText = 'Chưa có dữ liệu đo';
-            const alerts = document.getElementById('active-alerts');
-            if (alerts) alerts.innerHTML = '<div class="alert-item alert-info"><i data-lucide="info"></i> Chưa nhận được dữ liệu từ bộ pin.</div>';
-            if (window.lucide) lucide.createIcons();
-            return;
-        }
-
-        document.getElementById('data-iterations').innerText = d.diagnostics.model_iteration;
-        document.getElementById('data-v-mae').innerText = `${d.validation.v_mae} V`;
-        document.getElementById('data-accuracy').innerText = d.diagnostics.ecm_accuracy;
-        document.getElementById('data-sync-rate').innerText = `${d.sync_metrics.rate} %`;
         
         // ------------------ PAGE 1: SYSTEM OVERVIEW ------------------
         if(document.getElementById('ov-v')) document.getElementById('ov-v').innerText = d.real.voltage + ' V';
         if(document.getElementById('ov-i')) document.getElementById('ov-i').innerText = d.real.current + ' A';
         if(document.getElementById('ov-t')) document.getElementById('ov-t').innerText = d.real.temperature + ' °C';
         if(document.getElementById('ov-p')) document.getElementById('ov-p').innerText = (d.real.power || (d.real.voltage * d.real.current).toFixed(3)) + ' W';
+        if(document.getElementById('ov-e')) document.getElementById('ov-e').innerText = (d.real.energy || 0.0) + ' Wh';
+        
         if(document.getElementById('ov-soc')) document.getElementById('ov-soc').innerText = d.real.soc + ' %';
         if(document.getElementById('ov-soh')) document.getElementById('ov-soh').innerText = d.real.soh + ' %';
         if(document.getElementById('ov-cycle')) document.getElementById('ov-cycle').innerText = d.twin.cycle_count;
@@ -359,8 +284,8 @@ async function updateTwin() {
         
         const anomalyRaw = d.edge_ai ? d.edge_ai.anomaly_class : "Normal Operation";
         if(document.getElementById('ov-anomaly')) document.getElementById('ov-anomaly').innerText = AI_CLASS_MAP_VN[anomalyRaw] || anomalyRaw;
-        if(document.getElementById('ov-ascore')) document.getElementById('ov-ascore').innerText = d.edge_ai && d.edge_ai.inference_time > 0 ? d.edge_ai.anomaly_score : "--";
-        if(document.getElementById('ov-atime')) document.getElementById('ov-atime').innerText = d.edge_ai && d.edge_ai.inference_time > 0 ? d.edge_ai.inference_time + " ms" : "--";
+        if(document.getElementById('ov-ascore')) document.getElementById('ov-ascore').innerText = d.edge_ai ? d.edge_ai.anomaly_score : "0.00";
+        if(document.getElementById('ov-atime')) document.getElementById('ov-atime').innerText = (d.edge_ai ? d.edge_ai.inference_time : 1) + " ms";
         
         // ------------------ PAGE 1: CELLS DATA (4S) ------------------
         if (d.cells) {
@@ -390,18 +315,13 @@ async function updateTwin() {
         if(document.getElementById('lm-soc')) document.getElementById('lm-soc').innerHTML = `${d.real.soc} <small>%</small>`;
         
         const monitorPage = document.getElementById('live-page');
-        const modelIteration = Number(d.diagnostics?.model_iteration || 0);
-        if(monitorPage && !monitorPage.classList.contains('hidden') && modelIteration !== lastLiveRowIteration) {
+        if(monitorPage && !monitorPage.classList.contains('hidden')) {
             const liveTb = document.getElementById('live-table-body');
             if(liveTb) {
-                liveTb.querySelector('.empty-row')?.remove();
                 const row = document.createElement('tr');
-                const power = d.real.power ?? (d.real.voltage * d.real.current).toFixed(3);
-                const energy = d.real.energy ?? '--';
-                row.innerHTML = `<td>${timeStr}</td><td>${d.real.voltage} V</td><td>${d.real.current} A</td><td>${d.real.temperature} °C</td><td>${power} W</td><td>${energy}${energy === '--' ? '' : ' Wh'}</td><td class="text-green">${d.real.soc} %</td>`;
+                row.innerHTML = `<td>${timeStr}</td><td>${d.real.voltage} V</td><td>${d.real.current} A</td><td>${d.real.temperature} °C</td><td>${d.real.power || 0} W</td><td>${d.real.energy || 0} Wh</td><td class="text-green">${d.real.soc} %</td>`;
                 liveTb.insertBefore(row, liveTb.firstChild);
                 if(liveTb.children.length > 50) liveTb.removeChild(liveTb.lastChild);
-                lastLiveRowIteration = modelIteration;
             }
         }
         
@@ -419,7 +339,7 @@ async function updateTwin() {
         let residual = Math.abs(d.real.voltage - d.twin.terminal_voltage).toFixed(3);
         if(document.getElementById('dt-sync-res')) document.getElementById('dt-sync-res').innerText = residual + ' V';
         if(document.getElementById('dt-sync-err')) document.getElementById('dt-sync-err').innerText = d.errors.voltage + ' %';
-        if(document.getElementById('dt-sync-age')) document.getElementById('dt-sync-age').innerText = formatReceiveInterval(d.sync_metrics.latency_ms);
+        if(document.getElementById('dt-sync-age')) document.getElementById('dt-sync-age').innerText = formatLatency(d.sync_metrics.latency_ms);
         
         if(document.getElementById('dt-tb-ocv')) document.getElementById('dt-tb-ocv').innerText = d.twin.ocv + ' V';
         if(document.getElementById('dt-tb-tv')) document.getElementById('dt-tb-tv').innerText = d.twin.terminal_voltage + ' V';
@@ -496,6 +416,7 @@ async function updateTwin() {
         
         // ------------------ PAGE 6: RUL ------------------
         if(document.getElementById('rul-cycles')) document.getElementById('rul-cycles').innerText = d.aging_model.rul_cycles.split(' ')[0];
+        if(document.getElementById('rul-conf')) document.getElementById('rul-conf').innerText = d.aging_model.rul_confidence_range || 'N/A';
         if(document.getElementById('rul-soh-cap')) document.getElementById('rul-soh-cap').innerText = d.twin.soh + ' %';
         if(document.getElementById('rul-soh-res')) document.getElementById('rul-soh-res').innerText = (100 - parseFloat(d.aging_model.resistance_growth)).toFixed(1) + ' %';
         if(document.getElementById('rul-fade')) document.getElementById('rul-fade').innerText = d.aging_model.capacity_fade;
@@ -514,51 +435,35 @@ async function updateTwin() {
         updateAlerts(d, timeStr);
 
         // ------------------ UPDATE CHARTS ------------------
-        if (modelIteration !== lastChartIteration) {
-            const timestamp = now.getTime();
-            pushData(charts.overview, 0, timestamp, d.real.voltage);
-            pushData(charts.lmV, 0, timestamp, d.real.voltage);
-            pushData(charts.lmI, 0, timestamp, d.real.current);
-            pushData(charts.lmT, 0, timestamp, d.real.temperature);
-            pushData(charts.lmP, 0, timestamp, d.real.power ?? (d.real.voltage * d.real.current));
-            pushData(charts.valVolt, 0, timestamp, d.real.voltage);
-            pushData(charts.valVolt, 1, timestamp, d.twin.terminal_voltage);
-            pushData(charts.valSoc, 0, timestamp, d.real.soc);
-            pushData(charts.valSoc, 1, timestamp, d.twin.soc);
-            pushData(charts.valErr, 0, timestamp, residual);
-            pushData(charts.valRes, 0, timestamp, d.model_parameters.R0_mOhm);
-            lastChartIteration = modelIteration;
-        }
+        let timestamp = now.getTime();
+        
+        pushData(charts.overview, 0, timestamp, d.real.voltage);
+        pushData(charts.lmV, 0, timestamp, d.real.voltage);
+        pushData(charts.lmI, 0, timestamp, d.real.current);
+        pushData(charts.lmT, 0, timestamp, d.real.temperature);
+        pushData(charts.lmP, 0, timestamp, d.real.power || (d.real.voltage * d.real.current));
+        
+        pushData(charts.valVolt, 0, timestamp, d.real.voltage);
+        pushData(charts.valVolt, 1, timestamp, d.twin.terminal_voltage);
+        pushData(charts.valSoc, 0, timestamp, d.real.soc);
+        pushData(charts.valSoc, 1, timestamp, d.twin.soc);
+        pushData(charts.valErr, 0, timestamp, residual);
+        pushData(charts.valRes, 0, timestamp, d.model_parameters.R0_mOhm);
         
         // Chỉ cập nhật đồ thị trên trang đang hiển thị để tối ưu hiệu năng
         updateActiveCharts();
     } catch (e) {
         console.error("Fetch error: ", e);
         const telemetryStatus = document.getElementById('gb-sys');
-        const gatewayStatus = document.getElementById('gb-esp');
         const backendStatus = document.getElementById('gb-mqtt');
         if (telemetryStatus) {
             telemetryStatus.innerText = "Chưa có dữ liệu";
             telemetryStatus.className = "text-orange";
         }
-        if (gatewayStatus) {
-            gatewayStatus.innerText = "Mất kết nối";
-            gatewayStatus.className = "text-red";
-        }
         if (backendStatus) {
             backendStatus.innerText = "Không kết nối được";
             backendStatus.className = "text-red";
         }
-        const twinStatus = document.getElementById('dt-sync-status');
-        if (twinStatus) twinStatus.innerText = "Không lấy được dữ liệu mới";
-        const aiStatus = document.getElementById('ai-status');
-        if (aiStatus) {
-            aiStatus.innerText = "Đang chờ dữ liệu";
-            aiStatus.className = "text-muted";
-        }
-        const alerts = document.getElementById('active-alerts');
-        if (alerts) alerts.innerHTML = '<div class="alert-item alert-danger"><i data-lucide="wifi-off"></i> Không thể lấy dữ liệu mới từ máy chủ.</div>';
-        if (window.lucide) lucide.createIcons();
     } finally {
         isFetching = false;
     }
@@ -575,99 +480,11 @@ setInterval(() => {
 }, 1500);
 updateTwin();
 
-const AI_HISTORY_LABELS = {
-    1: 'Quá áp',
-    2: 'Thấp áp',
-    3: 'Quá dòng',
-    4: 'Quá nhiệt',
-    5: 'Lệch điện áp cell'
-};
-
-function appendTableRow(table, values, className = '') {
-    const row = document.createElement('tr');
-    if (className) row.className = className;
-    values.forEach(value => {
-        const cell = document.createElement('td');
-        cell.textContent = value ?? '--';
-        row.appendChild(cell);
-    });
-    table.appendChild(row);
-}
-
-function appendEmptyTableRow(table, columnCount, message) {
-    const row = document.createElement('tr');
-    row.className = 'empty-row';
-    const cell = document.createElement('td');
-    cell.colSpan = columnCount;
-    cell.textContent = message;
-    row.appendChild(cell);
-    table.appendChild(row);
-}
-
-function formatHistoryTime(value) {
-    if (!value) return '--';
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString('vi-VN');
-}
-
-async function loadHistory() {
-    try {
-        const response = await fetch('/api/history');
-        if (!response.ok) throw new Error(`History API returned ${response.status}`);
-        const records = await response.json();
-        const historyBody = document.getElementById('data-history-body');
-        const anomalyBody = document.getElementById('ai-history-body');
-        if (!Array.isArray(records)) throw new Error('Invalid history response');
-
-        historyBody.replaceChildren();
-        records.slice(-20).reverse().forEach(record => {
-            const flags = record.fault_flags || 'NORMAL';
-            appendTableRow(historyBody, [
-                formatHistoryTime(record.timestamp),
-                `${record.voltage ?? '--'} V`,
-                `${record.current ?? '--'} A`,
-                `${record.temperature ?? '--'} °C`,
-                `${record.soc ?? '--'} %`,
-                flags === 'NORMAL' ? 'Ổn định' : flags
-            ], flags === 'NORMAL' ? '' : 'text-orange');
-        });
-        if (!records.length) appendEmptyTableRow(historyBody, 6, 'Chưa có dữ liệu đo.');
-
-        const anomalies = records.filter(record => {
-            const flags = String(record.fault_flags || 'NORMAL');
-            return Number(record.ai_class || 0) !== 0 || flags !== 'NORMAL';
-        }).slice(-20).reverse();
-        anomalyBody.replaceChildren();
-        anomalies.forEach(record => {
-            const flags = record.fault_flags || 'NORMAL';
-            const className = AI_HISTORY_LABELS[Number(record.ai_class)] || (flags === 'NORMAL' ? 'Bất thường' : flags);
-            const confidence = Number(record.ai_score);
-            const aiClass = Number(record.ai_class || 0);
-            const anomalyScore = Number.isFinite(confidence) && Number(record.ai_time) > 0
-                ? (aiClass === 0 ? 1 - confidence / 100 : confidence / 100).toFixed(2)
-                : '--';
-            appendTableRow(anomalyBody, [
-                formatHistoryTime(record.timestamp), className, anomalyScore,
-                `${record.voltage ?? '--'} V`, `${record.current ?? '--'} A`,
-                `${record.temperature ?? '--'} °C`, flags === 'NORMAL' ? 'Cảnh báo AI' : flags
-            ], 'text-orange');
-        });
-        if (!anomalies.length) appendEmptyTableRow(anomalyBody, 7, 'Chưa ghi nhận bất thường.');
-    } catch (error) {
-        console.error('History loading error:', error);
-    }
-}
-
-loadHistory();
-setInterval(loadHistory, 15000);
-
 // ============================================================
 // 5. SYSTEM CONFIGURATION
 // ============================================================
 async function updateBatteryConfig() {
     const selectEl = document.getElementById('config-battery-type');
-    const button = document.getElementById('config-apply');
-    const message = document.getElementById('config-message');
     const batteryId = selectEl.value;
     const batteryText = selectEl.options[selectEl.selectedIndex].text;
     const cmdStr = `SET_PIN:${batteryId}`;
@@ -677,9 +494,6 @@ async function updateBatteryConfig() {
     const match = batteryText.match(/(\d+(?:\.\d+)?)\s*Ah/i);
     if(match) capacity = parseFloat(match[1]);
 
-    button.disabled = true;
-    message.innerText = 'Đang gửi cấu hình…';
-    message.className = 'text-sm text-muted';
     try {
         const res = await fetch('/api/command', {
             method: 'POST',
@@ -688,17 +502,13 @@ async function updateBatteryConfig() {
         });
         
         if(res.ok) {
-            message.innerText = `Đã đưa cấu hình ${batteryText} vào hàng đợi. Thiết bị sẽ nhận lệnh khi kết nối.`;
-            message.className = 'text-sm text-green';
+            alert(`Đã gửi cấu hình thành công! Loại pin đã chuyển sang: ${batteryText}.`);
         } else {
-            throw new Error(`HTTP ${res.status}`);
+            alert("Lỗi khi gửi cấu hình xuống thiết bị.");
         }
     } catch (e) {
         console.error("Config error:", e);
-        message.innerText = 'Không gửi được cấu hình. Hãy kiểm tra kết nối rồi thử lại.';
-        message.className = 'text-sm text-red';
-    } finally {
-        button.disabled = false;
+        alert("Lỗi kết nối khi gửi cấu hình.");
     }
 }
 
@@ -714,16 +524,12 @@ async function resetBatterySOH() {
         });
         
         if(res.ok) {
-            const message = document.getElementById('reset-message');
-            message.innerText = 'Đã đưa lệnh đặt lại SOH vào hàng đợi. Thiết bị sẽ nhận lệnh khi kết nối.';
-            message.className = 'text-sm text-green';
+            alert("Lệnh RESET SOH đã được chuyển xuống phần cứng thành công!");
         } else {
-            throw new Error(`HTTP ${res.status}`);
+            alert("Lỗi khi gửi lệnh reset.");
         }
     } catch (e) {
         console.error("Reset error:", e);
-        const message = document.getElementById('reset-message');
-        message.innerText = 'Không gửi được lệnh. Hãy kiểm tra kết nối rồi thử lại.';
-        message.className = 'text-sm text-red';
+        alert("Lỗi kết nối tới Server.");
     }
 }
