@@ -26,8 +26,12 @@ function updateActiveCharts(targetId) {
 
 menuItems.forEach(item => {
     item.addEventListener('click', () => {
-        menuItems.forEach(i => i.classList.remove('active'));
+        menuItems.forEach(i => {
+            i.classList.remove('active');
+            i.removeAttribute('aria-current');
+        });
         item.classList.add('active');
+        item.setAttribute('aria-current', 'page');
         
         pages.forEach(p => {
             p.classList.add('hidden');
@@ -114,9 +118,8 @@ function createChart(canvasId, datasets, isDual = false) {
 function initCharts() {
     // Overview
     charts.overview = createChart('c-overview', [
-        { label: 'Điện áp Pack (V)', data: [], borderColor: '#3b82f6', tension: 0.4, pointRadius: 0, borderWidth: 2 },
-        { label: 'Dòng điện (A)', data: [], borderColor: '#f59e0b', tension: 0.4, pointRadius: 0, borderWidth: 2 }
-    ], true);
+        { label: 'Điện áp bộ pin (V)', data: [], borderColor: '#60a5fa', backgroundColor: 'rgba(96,165,250,.08)', fill: true, tension: 0.35, pointRadius: 0, borderWidth: 2 }
+    ]);
     
     // Live Monitoring
     charts.lmV = createChart('c-lm-v', [{ data: [], borderColor: '#3b82f6', backgroundColor: '#3b82f622', fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 }]);
@@ -132,7 +135,7 @@ function initCharts() {
     
     charts.valSoc = createChart('c-val-soc', [
         { label: 'SOC Phần cứng', data: [], borderColor: '#3b82f6', tension: 0.4, pointRadius: 0, borderWidth: 2 },
-        { label: 'SOC Digital Twin', data: [], borderColor: '#10b981', tension: 0.4, pointRadius: 0, borderWidth: 2, borderDash: [6, 4] }
+        { label: 'SOC mô hình', data: [], borderColor: '#10b981', tension: 0.4, pointRadius: 0, borderWidth: 2, borderDash: [6, 4] }
     ], true);
     
     charts.valErr = createChart('c-val-err', [{ data: [], borderColor: '#ef4444', backgroundColor: '#ef444422', fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 }]);
@@ -150,9 +153,9 @@ function pushData(chart, datasetIndex, x, y) {
 
 // Bảng ánh xạ nhãn chuyên ngành sang song ngữ dễ hiểu
 const STATUS_MODE_MAP = {
-    "Discharging": "Đang xả (Discharging)",
-    "Charging": "Đang sạc (Charging)",
-    "Idle": "Nghỉ (Idle)"
+    "Discharging": "Đang xả",
+    "Charging": "Đang sạc",
+    "Idle": "Chờ"
 };
 
 const SYNC_STATUS_MAP = {
@@ -163,14 +166,14 @@ const SYNC_STATUS_MAP = {
 };
 
 const AI_CLASS_MAP_VN = {
-    "Normal Operation": "Bình thường (Normal)",
-    "Normal": "Bình thường (Normal)",
-    "Over-voltage": "Quá áp (Over-voltage)",
-    "Under-voltage": "Sụt áp (Under-voltage)",
-    "Over-current": "Quá dòng (Over-current)",
-    "Over-heat": "Quá nhiệt (Over-temperature)",
-    "Cell Imbalance": "Lệch cell (Cell Imbalance)",
-    "Cell-Imbalance": "Lệch cell (Cell Imbalance)"
+    "Normal Operation": "Bình thường",
+    "Normal": "Bình thường",
+    "Over-voltage": "Quá áp",
+    "Under-voltage": "Thấp áp",
+    "Over-current": "Quá dòng",
+    "Over-heat": "Quá nhiệt",
+    "Cell Imbalance": "Lệch cell",
+    "Cell-Imbalance": "Lệch cell"
 };
 
 const AI_STATUS_LABEL_MAP = {
@@ -181,8 +184,8 @@ const AI_STATUS_LABEL_MAP = {
 
 const AGING_STAGE_MAP = {
     "Normal": "Bình thường",
-    "Degraded": "Suy giảm (Degraded)",
-    "End of Life": "Hết vòng đời (EOL)"
+    "Degraded": "Suy giảm",
+    "End of Life": "Cuối vòng đời"
 };
 
 function formatLatency(ms) {
@@ -207,7 +210,7 @@ function updateAlerts(d, timeStr) {
     
     if (d.edge_ai && d.edge_ai.anomaly_score >= 0.7) {
         const faultName = AI_CLASS_MAP_VN[d.edge_ai.anomaly_class] || d.edge_ai.anomaly_class;
-        alertsHtml += `<div class="alert-item alert-danger"><i data-lucide="alert-triangle"></i> Cảnh báo Edge AI: Phát hiện bất thường "${faultName}" (Score: ${d.edge_ai.anomaly_score.toFixed(2)}) lúc ${timeStr}.</div>`;
+        alertsHtml += `<div class="alert-item alert-danger"><i data-lucide="alert-triangle"></i> AI biên phát hiện bất thường "${faultName}" (điểm ${d.edge_ai.anomaly_score.toFixed(2)}) lúc ${timeStr}.</div>`;
     } else if (d.edge_ai && d.edge_ai.anomaly_score >= 0.3) {
         alertsHtml += `<div class="alert-item alert-warning"><i data-lucide="alert-circle"></i> Chú ý: Chỉ số bất thường tăng nhẹ (${d.edge_ai.anomaly_score.toFixed(2)}). Hệ thống tiếp tục theo dõi.</div>`;
     }
@@ -227,7 +230,7 @@ function updateAlerts(d, timeStr) {
     }
     
     if (alertsHtml === '') {
-        alertsHtml = `<div class="alert-item alert-success"><i data-lucide="check-circle-2"></i> Hệ thống đang vận hành ổn định. Dữ liệu Digital Twin và Edge AI đồng bộ tốt (${timeStr}).</div>`;
+        alertsHtml = `<div class="alert-item alert-success"><i data-lucide="check-circle-2"></i> Hệ thống đang vận hành ổn định. Dữ liệu bản sao số và AI biên đã đồng bộ (${timeStr}).</div>`;
     }
     
     alertContainer.innerHTML = alertsHtml;
@@ -244,7 +247,7 @@ async function updateTwin() {
     isFetching = true;
     try {
         const res = await fetch(`/api/digital-twin`);
-        if (!res.ok) return;
+        if (!res.ok) throw new Error(`Dashboard API returned ${res.status}`);
         const d = await res.json();
         
         const now = new Date();
@@ -253,15 +256,13 @@ async function updateTwin() {
         // ------------------ GLOBAL STATUS BAR ------------------
         document.getElementById('gb-time').innerText = timeStr;
         const isOnline = d.sync_metrics.status !== "Disconnected";
-        document.getElementById('gb-sys').innerText = isOnline ? "Trực tuyến" : "Ngoại tuyến";
+        document.getElementById('gb-sys').innerText = isOnline ? "Đang nhận dữ liệu" : "Mất tín hiệu";
         document.getElementById('gb-sys').className = isOnline ? "text-green" : "text-red";
         
-        document.getElementById('gb-stm').innerText = isOnline ? "Đã kết nối" : "Mất kết nối";
-        document.getElementById('gb-stm').className = isOnline ? "" : "text-red";
         document.getElementById('gb-esp').innerText = isOnline ? "Đã kết nối" : "Mất kết nối";
         document.getElementById('gb-esp').className = isOnline ? "" : "text-red";
-        document.getElementById('gb-mqtt').innerText = isOnline ? "Đã kết nối" : "Mất kết nối";
-        document.getElementById('gb-mqtt').className = isOnline ? "" : "text-red";
+        document.getElementById('gb-mqtt').innerText = "Đã kết nối";
+        document.getElementById('gb-mqtt').className = "text-green";
         
         document.getElementById('gb-mode').innerText = STATUS_MODE_MAP[d.real.status] || d.real.status;
         
@@ -301,7 +302,7 @@ async function updateTwin() {
                 
                 const cellEl = document.getElementById(`ov-c${i+1}`);
                 if (cellEl) {
-                    const c_status = c_ai === 0 ? "OK" : (`Lỗi C${c_ai}`);
+                    const c_status = c_ai === 0 ? "Ổn định" : (`Lỗi C${c_ai}`);
                     cellEl.innerHTML = `<span class="${colorClass}">${c_v} V | ${c_soc}% | ${c_status}</span>`;
                 }
             }
@@ -352,10 +353,11 @@ async function updateTwin() {
         
         // ------------------ PAGE 4: EDGE AI ------------------
         if(d.edge_ai) {
-            const aiScore = d.edge_ai.anomaly_score;
+            const aiAvailable = d.edge_ai.status !== 'Waiting for Data' && d.edge_ai.inference_time > 0;
+            const aiScore = aiAvailable ? d.edge_ai.anomaly_score : 0;
             const scoreEl = document.getElementById('ai-score');
             const scoreBar = document.getElementById('ai-score-bar');
-            if (scoreEl) scoreEl.innerText = aiScore.toFixed(2);
+            if (scoreEl) scoreEl.innerText = aiAvailable ? aiScore.toFixed(2) : '--';
             
             // Dynamic color for score
             let colorVar = 'var(--emerald)';
@@ -370,18 +372,20 @@ async function updateTwin() {
                 scoreEl.style.textShadow = `0 0 20px ${colorVar}66`;
             }
             if (scoreBar) {
-                scoreBar.style.width = `${Math.min(100, Math.max(0, aiScore * 100))}%`;
+                scoreBar.style.width = aiAvailable ? `${Math.min(100, Math.max(0, aiScore * 100))}%` : '0%';
                 scoreBar.style.background = colorVar;
             }
 
             const statusEl = document.getElementById('ai-status');
             if (statusEl) {
                 const rawLabel = d.edge_ai.status_label || d.edge_ai.status;
-                statusEl.innerText = AI_STATUS_LABEL_MAP[rawLabel] || rawLabel;
+                statusEl.innerText = aiAvailable ? (AI_STATUS_LABEL_MAP[rawLabel] || rawLabel) : 'Đang chờ dữ liệu';
                 if (d.edge_ai.status_label === 'Normal') {
                     statusEl.className = 'text-green';
                 } else if (d.edge_ai.status_label === 'Warning') {
                     statusEl.className = 'text-orange';
+                } else if (!aiAvailable) {
+                    statusEl.className = 'text-muted';
                 } else {
                     statusEl.className = 'text-red';
                 }
@@ -389,31 +393,18 @@ async function updateTwin() {
 
             const rawAiClass = d.edge_ai.anomaly_class;
             if(document.getElementById('ai-class')) {
-                document.getElementById('ai-class').innerText = AI_CLASS_MAP_VN[rawAiClass] || rawAiClass;
+                document.getElementById('ai-class').innerText = aiAvailable ? (AI_CLASS_MAP_VN[rawAiClass] || rawAiClass) : '--';
             }
             
             const conf = d.edge_ai.confidence;
-            if(document.getElementById('ai-conf')) document.getElementById('ai-conf').innerText = conf + '%';
+            if(document.getElementById('ai-conf')) document.getElementById('ai-conf').innerText = aiAvailable ? conf + '%' : '--';
             const confBar = document.getElementById('ai-conf-bar');
             if (confBar) {
-                confBar.style.width = `${conf}%`;
+                confBar.style.width = aiAvailable ? `${conf}%` : '0%';
             }
             
-            if(document.getElementById('ai-time')) document.getElementById('ai-time').innerText = d.edge_ai.inference_time + ' ms';
+            if(document.getElementById('ai-time')) document.getElementById('ai-time').innerText = aiAvailable ? d.edge_ai.inference_time + ' ms' : '--';
             
-            // Push history to table if it's an anomaly (score >= 0.7)
-            if (aiScore >= 0.7 && Math.random() > 0.95) {
-                const histTb = document.getElementById('ai-history-body');
-                if (histTb) {
-                    const row = document.createElement('tr');
-                    const badge = aiScore > 0.9 ? '<span class="status-badge badge-red">Nguy hiểm</span>' : '<span class="status-badge badge-orange">Cảnh báo</span>';
-                    const colorCls = aiScore > 0.9 ? 'text-red' : 'text-orange';
-                    const classText = AI_CLASS_MAP_VN[d.edge_ai.anomaly_class] || d.edge_ai.anomaly_class;
-                    row.innerHTML = `<td>${timeStr}</td><td>${classText}</td><td class="${colorCls}">${aiScore.toFixed(2)}</td><td>${d.real.voltage} V</td><td>${d.real.current} A</td><td>${d.real.temperature}°C</td><td>${badge}</td>`;
-                    histTb.insertBefore(row, histTb.firstChild);
-                    if (histTb.children.length > 10) histTb.removeChild(histTb.lastChild);
-                }
-            }
         }
         // ------------------ PAGE 5: VALIDATION ------------------
         if(d.validation) {
@@ -447,8 +438,6 @@ async function updateTwin() {
         let timestamp = now.getTime();
         
         pushData(charts.overview, 0, timestamp, d.real.voltage);
-        pushData(charts.overview, 1, timestamp, d.real.current);
-        
         pushData(charts.lmV, 0, timestamp, d.real.voltage);
         pushData(charts.lmI, 0, timestamp, d.real.current);
         pushData(charts.lmT, 0, timestamp, d.real.temperature);
@@ -465,6 +454,16 @@ async function updateTwin() {
         updateActiveCharts();
     } catch (e) {
         console.error("Fetch error: ", e);
+        const telemetryStatus = document.getElementById('gb-sys');
+        const backendStatus = document.getElementById('gb-mqtt');
+        if (telemetryStatus) {
+            telemetryStatus.innerText = "Chưa có dữ liệu";
+            telemetryStatus.className = "text-orange";
+        }
+        if (backendStatus) {
+            backendStatus.innerText = "Không kết nối được";
+            backendStatus.className = "text-red";
+        }
     } finally {
         isFetching = false;
     }
@@ -492,7 +491,7 @@ async function updateBatteryConfig() {
     
     // Parse dung lượng từ text (VD: "Generic 18650 3.0Ah" -> 3.0)
     let capacity = 2.2;
-    const match = batteryText.match(/(\d+\.\d+)Ah/);
+    const match = batteryText.match(/(\d+(?:\.\d+)?)\s*Ah/i);
     if(match) capacity = parseFloat(match[1]);
 
     try {

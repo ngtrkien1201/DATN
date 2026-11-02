@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nền tảng Thực thể số Pin (Battery Digital Twin Platform)</title>
+    <title>Battery Twin | Giám sát pin</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polygon points='12 2 2 7 12 12 22 7 12 2'/><polyline points='2 17 12 22 22 17'/><polyline points='2 12 12 17 22 12'/></svg>">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -17,18 +17,18 @@
         <aside class="sidebar glass-panel">
             <div class="logo">
                 <i data-lucide="layers" class="gradient-text" style="width:32px; height:32px;"></i>
-                <h2 style="font-size: 1.15rem;">Digital Twin<br><small style="font-size:0.75rem; color: var(--text-muted);">Industrial Platform</small></h2>
+                <h2 style="font-size: 1.15rem;">Battery Twin<br><small style="font-size:0.75rem; color: var(--text-muted);">Giám sát pin 4S</small></h2>
             </div>
             
-            <nav class="menu">
-                <a class="menu-item active" data-target="overview-page"><i data-lucide="layout-dashboard"></i> Tổng quan Hệ thống</a>
-                <a class="menu-item" data-target="live-page"><i data-lucide="activity"></i> Giám sát Trực tiếp (Live)</a>
-                <a class="menu-item" data-target="twin-page"><i data-lucide="cpu"></i> Mô hình Digital Twin</a>
-                <a class="menu-item" data-target="ai-page"><i data-lucide="brain-circuit"></i> Chẩn đoán Lỗi Edge AI</a>
-                <a class="menu-item" data-target="validation-page"><i data-lucide="check-circle"></i> Đánh giá Sai số Mô hình</a>
-                <a class="menu-item" data-target="rul-page"><i data-lucide="hourglass"></i> Dự đoán Tuổi thọ (RUL)</a>
-                <a class="menu-item" data-target="data-page"><i data-lucide="database"></i> Dữ liệu & Thực nghiệm</a>
-                <a class="menu-item" data-target="config-page"><i data-lucide="settings"></i> Cài đặt & Cấu hình</a>
+            <nav class="menu" aria-label="Điều hướng chính">
+                <button type="button" class="menu-item active" data-target="overview-page" aria-current="page"><i data-lucide="layout-dashboard"></i> Tổng quan hệ thống</button>
+                <button type="button" class="menu-item" data-target="live-page"><i data-lucide="activity"></i> Giám sát trực tiếp</button>
+                <button type="button" class="menu-item" data-target="twin-page"><i data-lucide="cpu"></i> Bản sao số</button>
+                <button type="button" class="menu-item" data-target="ai-page"><i data-lucide="brain-circuit"></i> Chẩn đoán AI</button>
+                <button type="button" class="menu-item" data-target="validation-page"><i data-lucide="check-circle"></i> Đánh giá mô hình</button>
+                <button type="button" class="menu-item" data-target="rul-page"><i data-lucide="hourglass"></i> Dự báo tuổi thọ</button>
+                <button type="button" class="menu-item" data-target="data-page"><i data-lucide="database"></i> Dữ liệu & thử nghiệm</button>
+                <button type="button" class="menu-item" data-target="config-page"><i data-lucide="settings"></i> Cấu hình</button>
             </nav>
         </aside>
 
@@ -36,13 +36,12 @@
         <main class="main-content">
             <!-- Top Status Bar -->
             <div id="global-status-bar" class="glass-panel status-bar">
-                <div class="status-item"><i data-lucide="battery"></i> Pack: <span id="gb-id">BAT-001</span></div>
-                <div class="status-item"><i data-lucide="wifi"></i> Trạng thái: <span id="gb-sys" class="text-green">Trực tuyến</span></div>
-                <div class="status-item"><i data-lucide="cpu"></i> STM32: <span id="gb-stm">Đã kết nối</span></div>
-                <div class="status-item"><i data-lucide="radio"></i> ESP32-S3: <span id="gb-esp">Đã kết nối</span></div>
-                <div class="status-item"><i data-lucide="cloud"></i> Server: <span id="gb-mqtt">Đã kết nối</span></div>
+                <div class="status-item"><i data-lucide="battery"></i> Bộ pin <span id="gb-id">BAT-001</span></div>
+                <div class="status-item"><i data-lucide="wifi"></i> Telemetry: <span id="gb-sys" class="text-green">Đang chờ dữ liệu</span></div>
+                <div class="status-item"><i data-lucide="radio"></i> Gateway: <span id="gb-esp">Đang chờ dữ liệu</span></div>
+                <div class="status-item"><i data-lucide="cloud"></i> Backend: <span id="gb-mqtt">Đang kết nối</span></div>
                 <div class="status-item"><i data-lucide="clock"></i> Cập nhật: <span id="gb-time">--:--:--</span></div>
-                <div class="status-item"><i data-lucide="zap"></i> Chế độ: <span id="gb-mode" class="text-orange">Đang xả (Discharging)</span></div>
+                <div class="status-item"><i data-lucide="zap"></i> Chế độ: <span id="gb-mode">--</span></div>
             </div>
 
             <!-- ============================================ -->
@@ -50,7 +49,7 @@
             <!-- ============================================ -->
             <div id="overview-page" class="page-content">
                 <header class="topbar">
-                    <div><h1>Tổng quan Hệ thống</h1><p class="subtitle">Kiến trúc Thực thể số Pin Thời gian thực (Real-time Battery Digital Twin)</p></div>
+                    <div><h1>Tổng quan hệ thống</h1><p class="subtitle">Theo dõi trạng thái pin và các chỉ số vận hành theo thời gian thực.</p></div>
                 </header>
 
                 <!-- Architecture Flow -->
@@ -58,57 +57,57 @@
                     <div class="flow-diagram">
                         <div class="flow-node"><div class="flow-icon node-active"><i data-lucide="cpu"></i></div>STM32<br><small>Cảm biến & BMS</small></div>
                         <div class="flow-arrow"></div>
-                        <div class="flow-node"><div class="flow-icon node-active"><i data-lucide="radio"></i></div>ESP32-S3<br><small>IoT & Edge AI</small></div>
+                        <div class="flow-node"><div class="flow-icon node-active"><i data-lucide="radio"></i></div>ESP32-S3<br><small>IoT & AI biên</small></div>
                         <div class="flow-arrow"></div>
-                        <div class="flow-node"><div class="flow-icon node-active"><i data-lucide="cloud"></i></div>Vercel Cloud<br><small>REST API & DB</small></div>
+                        <div class="flow-node"><div class="flow-icon node-active"><i data-lucide="cloud"></i></div>Máy chủ<br><small>API & cơ sở dữ liệu</small></div>
                         <div class="flow-arrow"></div>
-                        <div class="flow-node"><div class="flow-icon node-active"><i data-lucide="layers"></i></div>Digital Twin<br><small>Mô hình 1RC</small></div>
+                        <div class="flow-node"><div class="flow-icon node-active"><i data-lucide="layers"></i></div>Bản sao số<br><small>Mô hình 1RC</small></div>
                         <div class="flow-arrow"></div>
-                        <div class="flow-node"><div class="flow-icon node-active"><i data-lucide="monitor"></i></div>Dashboard<br><small>Giao diện Web</small></div>
+                        <div class="flow-node"><div class="flow-icon node-active"><i data-lucide="monitor"></i></div>Bảng điều khiển<br><small>Giao diện web</small></div>
                     </div>
                 </div>
 
                 <div class="grid-4" style="margin-top: 1.5rem;">
                     <!-- Physical Battery -->
                     <div class="glass-panel p-4">
-                        <h3 class="section-title text-orange"><i data-lucide="battery-charging"></i> Bộ Pin Vật lý (Pack 4S)</h3>
-                        <div class="twin-item"><span>Điện áp Pack</span><strong id="ov-v">0.000 V</strong></div>
-                        <div class="twin-item"><span>Dòng điện</span><strong id="ov-i">0.000 A</strong></div>
-                        <div class="twin-item"><span>Nhiệt độ</span><strong id="ov-t">0.0 °C</strong></div>
-                        <div class="twin-item"><span>Công suất</span><strong id="ov-p">0.000 W</strong></div>
-                        <div class="twin-item"><span>Mức pin (SOC)</span><strong id="ov-soc" class="text-green">0.0 %</strong></div>
-                        <div class="twin-item"><span>Tuổi thọ (SOH)</span><strong id="ov-soh" class="text-blue">0.0 %</strong></div>
+                        <h3 class="section-title text-orange"><i data-lucide="battery-charging"></i> Pin thực tế (4S)</h3>
+                        <div class="twin-item"><span>Điện áp bộ pin</span><strong id="ov-v">-- V</strong></div>
+                        <div class="twin-item"><span>Dòng điện</span><strong id="ov-i">-- A</strong></div>
+                        <div class="twin-item"><span>Nhiệt độ</span><strong id="ov-t">-- °C</strong></div>
+                        <div class="twin-item"><span>Công suất</span><strong id="ov-p">-- W</strong></div>
+                        <div class="twin-item"><span>SOC bộ pin</span><strong id="ov-soc" class="text-green">-- %</strong></div>
+                        <div class="twin-item"><span>SOH bộ pin</span><strong id="ov-soh" class="text-blue">-- %</strong></div>
                     </div>
                     <!-- 4S Cells -->
                     <div class="glass-panel p-4">
                         <h3 class="section-title text-green"><i data-lucide="bar-chart-2"></i> Điện áp từng Cell (4S)</h3>
-                        <div class="twin-item"><span>Cell 1</span><strong id="ov-c1" class="text-green">0.00 V | 0% | C0</strong></div>
-                        <div class="twin-item"><span>Cell 2</span><strong id="ov-c2" class="text-green">0.00 V | 0% | C0</strong></div>
-                        <div class="twin-item"><span>Cell 3</span><strong id="ov-c3" class="text-green">0.00 V | 0% | C0</strong></div>
-                        <div class="twin-item"><span>Cell 4</span><strong id="ov-c4" class="text-green">0.00 V | 0% | C0</strong></div>
+                        <div class="twin-item"><span>Cell 1</span><strong id="ov-c1">--</strong></div>
+                        <div class="twin-item"><span>Cell 2</span><strong id="ov-c2">--</strong></div>
+                        <div class="twin-item"><span>Cell 3</span><strong id="ov-c3">--</strong></div>
+                        <div class="twin-item"><span>Cell 4</span><strong id="ov-c4">--</strong></div>
                     </div>
                     <!-- Digital Twin -->
                     <div class="glass-panel p-4">
-                        <h3 class="section-title text-blue"><i data-lucide="box"></i> Mô hình Digital Twin</h3>
-                        <div class="twin-item"><span>Điện áp mô phỏng</span><strong id="ov-tv" class="text-blue">0.000 V</strong></div>
-                        <div class="twin-item"><span>Mức pin mô hình</span><strong id="ov-tsoc" class="text-green">0.0 %</strong></div>
-                        <div class="twin-item"><span>Sai số điện áp</span><strong id="ov-err">0 mV</strong></div>
-                        <div class="twin-item"><span>Đồng bộ</span><strong id="ov-sync">Đã đồng bộ</strong></div>
+                        <h3 class="section-title text-blue"><i data-lucide="box"></i> Bản sao số</h3>
+                        <div class="twin-item"><span>Điện áp mô hình</span><strong id="ov-tv" class="text-blue">-- V</strong></div>
+                        <div class="twin-item"><span>SOC mô hình</span><strong id="ov-tsoc" class="text-green">-- %</strong></div>
+                        <div class="twin-item"><span>Sai số điện áp</span><strong id="ov-err">-- mV</strong></div>
+                        <div class="twin-item"><span>Đồng bộ</span><strong id="ov-sync">Đang chờ</strong></div>
                         <div class="twin-item"><span>Phiên bản mô hình</span><strong>Thevenin-1RC</strong></div>
                     </div>
                     <!-- Edge AI -->
                     <div class="glass-panel p-4">
-                        <h3 class="section-title text-purple"><i data-lucide="brain"></i> Trí tuệ nhân tạo (Edge AI)</h3>
-                        <div class="twin-item"><span>Trạng thái AI</span><strong class="text-cyan" style="white-space: nowrap;">ESP32-S3 (Đang chạy)</strong></div>
-                        <div class="twin-item"><span>Phát hiện lỗi</span><strong id="ov-anomaly">Bình thường</strong></div>
-                        <div class="twin-item"><span>Điểm bất thường</span><strong id="ov-ascore">0.00</strong></div>
-                        <div class="twin-item"><span>Thời gian suy luận</span><strong id="ov-atime">1 ms</strong></div>
+                        <h3 class="section-title text-purple"><i data-lucide="brain"></i> Chẩn đoán AI</h3>
+                        <div class="twin-item"><span>Thiết bị xử lý</span><strong class="text-cyan">ESP32-S3</strong></div>
+                        <div class="twin-item"><span>Phát hiện lỗi</span><strong id="ov-anomaly">Đang chờ dữ liệu</strong></div>
+                        <div class="twin-item"><span>Điểm bất thường</span><strong id="ov-ascore">--</strong></div>
+                        <div class="twin-item"><span>Thời gian suy luận</span><strong id="ov-atime">-- ms</strong></div>
                     </div>
                 </div>
 
                 <div class="grid-2" style="margin-top: 1.5rem;">
                     <div class="glass-panel p-4">
-                        <h3 class="section-title"><i data-lucide="activity"></i> Xu hướng Điện áp - Dòng điện (V-I)</h3>
+                        <h3 class="section-title"><i data-lucide="activity"></i> Diễn biến điện áp bộ pin</h3>
                         <div class="chart-sm"><canvas id="c-overview"></canvas></div>
                     </div>
                     <div class="glass-panel p-4">
@@ -125,21 +124,21 @@
             <!-- ============================================ -->
             <div id="live-page" class="page-content hidden">
                 <header class="topbar">
-                    <div><h1>Giám sát Trực tiếp (Live)</h1><p class="subtitle">Dữ liệu Cảm biến Thời gian thực & Công suất Đo đạc</p></div>
+                    <div><h1>Giám sát trực tiếp</h1><p class="subtitle">Dữ liệu cảm biến và xu hướng vận hành của bộ pin.</p></div>
                     <div class="actions">
-                        <button class="btn-outline" onclick="window.location.href='/api/export-csv'"><i data-lucide="download"></i> Xuất dữ liệu CSV</button>
+                        <button class="btn-outline" onclick="window.location.href='/api/export-csv'"><i data-lucide="download"></i> Xuất CSV</button>
                     </div>
                 </header>
 
                 <div class="grid-4" style="margin-top: 1rem;">
-                    <div class="kpi-card glass-panel"><span>Điện áp Pack (Voltage)</span><h2 id="lm-v">0.000 <small>V</small></h2></div>
-                    <div class="kpi-card glass-panel"><span>Dòng điện (Current)</span><h2 id="lm-i">0.000 <small>A</small></h2></div>
-                    <div class="kpi-card glass-panel"><span>Công suất (Power)</span><h2 id="lm-p">0.000 <small>W</small></h2></div>
-                    <div class="kpi-card glass-panel border-green"><span>Ước lượng Mức Pin (SOC)</span><h2 id="lm-soc" class="text-green">0.0 <small>%</small></h2></div>
+                    <div class="kpi-card glass-panel"><span>Điện áp</span><h2 id="lm-v">-- <small>V</small></h2></div>
+                    <div class="kpi-card glass-panel"><span>Dòng điện</span><h2 id="lm-i">-- <small>A</small></h2></div>
+                    <div class="kpi-card glass-panel"><span>Công suất</span><h2 id="lm-p">-- <small>W</small></h2></div>
+                    <div class="kpi-card glass-panel border-green"><span>SOC ước tính</span><h2 id="lm-soc" class="text-green">-- <small>%</small></h2></div>
                 </div>
 
                 <div class="grid-2" style="margin-top: 1.5rem;">
-                    <div class="glass-panel p-4"><h4 class="chart-title">Điện áp Pack (V)</h4><div class="chart-md"><canvas id="c-lm-v"></canvas></div></div>
+                    <div class="glass-panel p-4"><h4 class="chart-title">Điện áp bộ pin (V)</h4><div class="chart-md"><canvas id="c-lm-v"></canvas></div></div>
                     <div class="glass-panel p-4"><h4 class="chart-title">Dòng điện (A)</h4><div class="chart-md"><canvas id="c-lm-i"></canvas></div></div>
                     <div class="glass-panel p-4"><h4 class="chart-title">Nhiệt độ (°C)</h4><div class="chart-md"><canvas id="c-lm-t"></canvas></div></div>
                     <div class="glass-panel p-4"><h4 class="chart-title">Công suất (W)</h4><div class="chart-md"><canvas id="c-lm-p"></canvas></div></div>
@@ -161,13 +160,13 @@
             <!-- ============================================ -->
             <div id="twin-page" class="page-content hidden">
                 <header class="topbar">
-                    <div><h1>Mô hình Digital Twin</h1><p class="subtitle">Mạch tương đương Thevenin 1RC & Đồng bộ Trạng thái Vật lý</p></div>
+                    <div><h1>Bản sao số</h1><p class="subtitle">Trạng thái pin thực tế và kết quả mô hình Thevenin 1RC.</p></div>
                 </header>
 
                 <div class="grid-3" style="margin-top: 1.5rem;">
                     <!-- Physical State -->
                     <div class="glass-panel p-4">
-                        <h3 class="section-title text-orange"><i data-lucide="battery-charging"></i> Trạng thái Vật lý (Physical)</h3>
+                        <h3 class="section-title text-orange"><i data-lucide="battery-charging"></i> Trạng thái thực tế</h3>
                         <div class="battery-visual-container"><div class="battery-physical"><div class="battery-fill" id="dt-pb-fill"></div></div></div>
                         <div class="twin-item"><span>Điện áp đo được</span><strong id="dt-pb-v">0 V</strong></div>
                         <div class="twin-item"><span>Dòng điện đo được</span><strong id="dt-pb-i">0 A</strong></div>
@@ -189,7 +188,7 @@
 
                     <!-- Twin State -->
                     <div class="glass-panel p-4">
-                        <h3 class="section-title text-blue"><i data-lucide="cpu"></i> Thực thể số (Digital Twin)</h3>
+                        <h3 class="section-title text-blue"><i data-lucide="cpu"></i> Trạng thái bản sao số</h3>
                         <div class="battery-visual-container"><div class="battery-hologram"><div class="battery-grid"></div><div class="battery-fill-glow" id="dt-tb-fill"></div><div class="scanline"></div></div></div>
                         <div class="twin-item"><span>Điện áp hở mạch (OCV)</span><strong id="dt-tb-ocv">0 V</strong></div>
                         <div class="twin-item"><span>Điện áp đầu cực (V_term)</span><strong id="dt-tb-tv" class="text-blue">0 V</strong></div>
@@ -217,7 +216,7 @@
                     
                     <!-- Scenario Simulation -->
                     <div class="glass-panel p-4 border-neon">
-                        <h3 class="section-title text-blue"><i data-lucide="flask-conical"></i> Mô phỏng Kịch bản (What-If Sandbox)</h3>
+                        <h3 class="section-title text-blue"><i data-lucide="flask-conical"></i> Mô phỏng tình huống</h3>
                         <p class="text-sm text-muted mb-2">Mô phỏng hành vi của pin trong tương lai dưới điều kiện tải tùy chỉnh.</p>
                         <div class="grid-3" style="align-items: end;">
                             <div class="input-group">
@@ -247,7 +246,7 @@
             <!-- ============================================ -->
             <div id="ai-page" class="page-content hidden">
                 <header class="topbar">
-                    <div><h1>Chẩn đoán Lỗi Edge AI</h1><p class="subtitle">Suy luận Trí tuệ Nhân tạo Trực tiếp trên Vi điều khiển (ESP32-S3)</p></div>
+                    <div><h1>Chẩn đoán AI</h1><p class="subtitle">Phân tích bất thường được xử lý trên ESP32-S3.</p></div>
                 </header>
 
                 <div class="grid-3" style="margin-top: 1.5rem;">
@@ -255,8 +254,8 @@
                     <div class="glass-panel p-4">
                         <h3 class="section-title"><i data-lucide="cpu"></i> Cấu trúc Mô hình Nhúng</h3>
                         <div class="twin-item"><span>Thiết bị thực thi</span><strong class="text-cyan">ESP32-S3 (Biên - Edge)</strong></div>
-                        <div class="twin-item"><span>Framework</span><strong>TensorFlow Lite Micro</strong></div>
-                        <div class="twin-item"><span>Kiến trúc mô hình</span><strong>MLP Classifier / Decision Tree</strong></div>
+                        <div class="twin-item"><span>Nền tảng</span><strong>TensorFlow Lite Micro</strong></div>
+                        <div class="twin-item"><span>Kiến trúc mô hình</span><strong>MLP / Decision Tree</strong></div>
                         <div class="twin-item"><span>Lượng tử hóa</span><strong>Float32 / INT8</strong></div>
                         <div class="twin-item"><span>Thời gian suy luận</span><strong id="ai-time" class="text-green">1 ms</strong></div>
                     </div>
@@ -267,11 +266,11 @@
                         <div class="grid-2" style="gap: 2rem;">
                             <!-- Score Display -->
                             <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.2); border-radius: 12px; padding: 20px;">
-                                <h1 id="ai-score" style="font-size: 3.5rem; color: var(--emerald); text-shadow: 0 0 20px rgba(16,185,129,0.4); margin: 0;">0.05</h1>
-                                <p class="text-muted" style="letter-spacing: 1px; text-transform: uppercase; font-size: 0.8rem; margin-top: 5px;">Chỉ số Bất thường (Anomaly Score)</p>
+                                <h1 id="ai-score" style="font-size: 3.5rem; color: var(--emerald); margin: 0;">--</h1>
+                                <p class="text-muted" style="letter-spacing: 1px; text-transform: uppercase; font-size: 0.8rem; margin-top: 5px;">Điểm bất thường</p>
                                 
                                 <div style="width: 100%; background: #333; height: 6px; border-radius: 3px; margin-top: 15px; overflow: hidden;">
-                                    <div id="ai-score-bar" style="width: 5%; height: 100%; background: var(--emerald); transition: width 0.3s ease, background 0.3s ease;"></div>
+                                    <div id="ai-score-bar" style="width: 0%; height: 100%; background: var(--emerald); transition: width 0.3s ease, background 0.3s ease;"></div>
                                 </div>
                                 <div style="display: flex; justify-content: space-between; width: 100%; font-size: 0.7rem; color: #888; margin-top: 4px;">
                                     <span>An toàn (0.0)</span>
@@ -284,21 +283,21 @@
                             <div style="display:flex; flex-direction:column; justify-content:center; gap: 15px;">
                                 <div>
                                     <span style="font-size: 0.85rem; color: var(--text-muted);">Trạng thái Hoạt động Hệ thống</span>
-                                    <div style="font-size: 1.5rem; font-weight: bold;" id="ai-status" class="text-green">Bình thường</div>
+                                    <div style="font-size: 1.5rem; font-weight: bold;" id="ai-status" class="text-muted">Đang chờ dữ liệu</div>
                                 </div>
                                 
                                 <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; border-left: 4px solid var(--purple);">
                                     <span style="font-size: 0.8rem; color: var(--text-muted);">Nhãn Chẩn đoán Lỗi (Class Label)</span>
-                                    <div style="font-size: 1.1rem; font-weight: 600;" id="ai-class">Hoạt động Bình thường</div>
+                                    <div style="font-size: 1.1rem; font-weight: 600;" id="ai-class">--</div>
                                 </div>
                                 
                                 <div>
                                     <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px;">
                                         <span style="color: var(--text-muted)">Độ tin cậy Dự đoán (Confidence)</span>
-                                        <strong id="ai-conf">98.5%</strong>
+                                        <strong id="ai-conf">--</strong>
                                     </div>
                                     <div style="width: 100%; background: #222; height: 8px; border-radius: 4px; overflow: hidden;">
-                                        <div id="ai-conf-bar" style="width: 98.5%; height: 100%; background: linear-gradient(90deg, var(--purple), var(--cyan)); transition: width 0.3s ease;"></div>
+                                        <div id="ai-conf-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, var(--purple), var(--cyan)); transition: width 0.3s ease;"></div>
                                     </div>
                                 </div>
                             </div>
@@ -307,14 +306,11 @@
                 </div>
 
                 <div class="glass-panel p-4" style="margin-top: 1.5rem;">
-                    <h3 class="section-title"><i data-lucide="alert-triangle"></i> Lịch sử Phát hiện Bất thường (Anomaly History)</h3>
+                    <h3 class="section-title"><i data-lucide="alert-triangle"></i> Lịch sử bất thường</h3>
                     <div class="table-container">
                         <table>
                             <thead><tr><th>Thời gian</th><th>Loại lỗi</th><th>Chỉ số Score</th><th>Điện áp</th><th>Dòng điện</th><th>Nhiệt độ</th><th>Mức cảnh báo</th></tr></thead>
-                            <tbody id="ai-history-body">
-                                <tr><td>08:15:31</td><td>Sụt áp (Under-voltage)</td><td class="text-orange">0.82</td><td>3.21 V</td><td>-1.2 A</td><td>35.1°C</td><td><span class="status-badge badge-orange">Cảnh báo</span></td></tr>
-                                <tr><td>07:22:10</td><td>Quá dòng (Over-current)</td><td class="text-red">0.95</td><td>3.90 V</td><td>-4.5 A</td><td>39.2°C</td><td><span class="status-badge badge-red">Nguy hiểm</span></td></tr>
-                            </tbody>
+                            <tbody id="ai-history-body"><tr><td colspan="7" class="empty-state">Chưa có dữ liệu bất thường.</td></tr></tbody>
                         </table>
                     </div>
                 </div>
@@ -325,7 +321,7 @@
             <!-- ============================================ -->
             <div id="validation-page" class="page-content hidden">
                 <header class="topbar">
-                    <div><h1>Đánh giá Sai số Mô hình</h1><p class="subtitle">Độ chính xác của Digital Twin & Các chỉ số Sai số Thống kê</p></div>
+                    <div><h1>Đánh giá mô hình</h1><p class="subtitle">Theo dõi sai số giữa dữ liệu thực tế và bản sao số.</p></div>
                 </header>
 
                 <div class="grid-4" style="margin-top: 1.5rem;">
@@ -337,7 +333,7 @@
 
                 <div class="grid-2" style="margin-top: 1.5rem;">
                     <div class="glass-panel p-4"><h4 class="chart-title">So sánh Điện áp: Thực tế (V_meas) vs Mô hình (V_twin)</h4><div class="chart-md"><canvas id="c-val-volt"></canvas></div></div>
-                    <div class="glass-panel p-4"><h4 class="chart-title">So sánh SOC: Phần cứng vs Mô hình Digital Twin</h4><div class="chart-md"><canvas id="c-val-soc"></canvas></div></div>
+                    <div class="glass-panel p-4"><h4 class="chart-title">So sánh SOC thực tế và mô hình</h4><div class="chart-md"><canvas id="c-val-soc"></canvas></div></div>
                     <div class="glass-panel p-4"><h4 class="chart-title">Dư số Sai lệch Điện áp Residual (V)</h4><div class="chart-md"><canvas id="c-val-err"></canvas></div></div>
                     <div class="glass-panel p-4"><h4 class="chart-title">Xu hướng Ước lượng Nội trở thuần R0 (mΩ)</h4><div class="chart-md"><canvas id="c-val-res"></canvas></div></div>
                 </div>
@@ -348,20 +344,20 @@
             <!-- ============================================ -->
             <div id="rul-page" class="page-content hidden">
                 <header class="topbar">
-                    <div><h1>Dự đoán Tuổi thọ (RUL)</h1><p class="subtitle">Tiên lượng Số Chu kỳ Hoạt động Còn lại của Pin (Remaining Useful Life)</p></div>
+                    <div><h1>Dự báo tuổi thọ pin (RUL)</h1><p class="subtitle">Ước tính mức suy giảm và số chu kỳ còn lại.</p></div>
                 </header>
                 
                 <div class="grid-2" style="margin-top: 1.5rem;">
                     <!-- RUL Prediction -->
                     <div class="glass-panel p-4 text-center border-neon">
                         <h3 class="section-title justify-center text-blue"><i data-lucide="hourglass"></i> Dự đoán Tuổi thọ (RUL)</h3>
-                        <h1 id="rul-cycles" style="font-size: 4.5rem; color: var(--neon-blue); margin: 20px 0;">0</h1>
-                        <p class="text-lg">Ước tính số Chu kỳ còn lại (Cycles Remaining)</p>
+                        <h1 id="rul-cycles" style="font-size: 4.5rem; color: var(--neon-blue); margin: 20px 0;">--</h1>
+                        <p class="text-lg">Số chu kỳ ước tính còn lại</p>
                         <div class="grid-2 mt-4 text-left" style="background:rgba(0,0,0,0.2); padding:15px; border-radius:8px;">
                             <div class="twin-item" style="border:none;"><span>Khoảng tin cậy</span><strong id="rul-conf">0 - 0 chu kỳ</strong></div>
                             <div class="twin-item" style="border:none;"><span>Ngưỡng suy kiệt</span><strong>SOH ≤ 80%</strong></div>
-                            <div class="twin-item" style="border:none;"><span>Mô hình dự báo</span><strong>RUL-MLP-v1.0</strong></div>
-                            <div class="twin-item" style="border:none;"><span>Cửa sổ dữ liệu</span><strong>100 chu kỳ gần nhất</strong></div>
+                            <div class="twin-item" style="border:none;"><span>Giả định tuổi thọ</span><strong>1.000 chu kỳ</strong></div>
+                            <div class="twin-item" style="border:none;"><span>Ngưỡng kết thúc</span><strong>SOH 80%</strong></div>
                         </div>
                     </div>
                     
@@ -412,27 +408,14 @@
             <!-- ============================================ -->
             <div id="data-page" class="page-content hidden">
                 <header class="topbar">
-                    <div><h1>Dữ liệu & Thực nghiệm</h1><p class="subtitle">Đánh giá Hiệu năng Hệ thống & Lịch sử Thực nghiệm</p></div>
+                    <div><h1>Dữ liệu & thử nghiệm</h1><p class="subtitle">Thông số hệ thống và dữ liệu thực nghiệm.</p></div>
                 </header>
 
                 <div class="grid-2" style="margin-top: 1.5rem;">
                     <!-- System Evaluation -->
                     <div class="glass-panel p-4">
-                        <h3 class="section-title"><i data-lucide="bar-chart"></i> Đánh giá Hiệu năng Hệ thống</h3>
-                        <div class="grid-2">
-                            <div>
-                                <div class="twin-item"><span>Tỷ lệ mất gói</span><strong class="text-green">0.01 %</strong></div>
-                                <div class="twin-item"><span>Độ trễ trung bình</span><strong>120 ms</strong></div>
-                                <div class="twin-item"><span>Độ trễ tối đa</span><strong>380 ms</strong></div>
-                                <div class="twin-item"><span>Mất kết nối mạng</span><strong>0</strong></div>
-                            </div>
-                            <div>
-                                <div class="twin-item"><span>Độ chính xác AI (Precision)</span><strong>95.2 %</strong></div>
-                                <div class="twin-item"><span>Độ nhạy AI (Recall)</span><strong>93.4 %</strong></div>
-                                <div class="twin-item"><span>Chỉ số F1-Score</span><strong>0.94</strong></div>
-                                <div class="twin-item"><span>Mẫu lỗi DB</span><strong>0</strong></div>
-                            </div>
-                        </div>
+                        <h3 class="section-title"><i data-lucide="bar-chart"></i> Hiệu năng hệ thống</h3>
+                        <div class="empty-state">Chưa có số liệu hiệu năng được thu thập.</div>
                     </div>
 
                     <!-- Hardware & Telemetry Specs -->
@@ -440,16 +423,16 @@
                         <h3 class="section-title text-cyan"><i data-lucide="cpu"></i> Cấu hình Phần cứng & Truyền thông</h3>
                         <div class="grid-2">
                             <div>
-                                <div class="twin-item"><span>Cảm biến đo lường</span><strong>INA226 (I2C Bus)</strong></div>
-                                <div class="twin-item"><span>Tần số lấy mẫu</span><strong>1.0 Hz (1000ms)</strong></div>
-                                <div class="twin-item"><span>Giao tiếp MCU</span><strong>UART DMA 115200 bps</strong></div>
-                                <div class="twin-item"><span>Giao thức IoT</span><strong>MQTT QoS 1</strong></div>
+                                <div class="twin-item"><span>Cảm biến dòng/áp</span><strong>INA219 · I²C</strong></div>
+                                <div class="twin-item"><span>Chu kỳ gửi lên máy chủ</span><strong>3 giây</strong></div>
+                                <div class="twin-item"><span>Giao tiếp STM32–ESP32</span><strong>UART · 115200 bps</strong></div>
+                                <div class="twin-item"><span>Giao thức máy chủ</span><strong>HTTP · JSON</strong></div>
                             </div>
                             <div>
-                                <div class="twin-item"><span>Vi điều khiển BMS</span><strong>STM32F401 / F103</strong></div>
-                                <div class="twin-item"><span>Bộ xử lý Edge AI</span><strong>ESP32-S3 Dual-Core</strong></div>
-                                <div class="twin-item"><span>Định dạng gói tin</span><strong>JSON Payload</strong></div>
-                                <div class="twin-item"><span>Lưu trữ Cloud</span><strong>MongoDB Time-Series</strong></div>
+                                <div class="twin-item"><span>Vi điều khiển BMS</span><strong>STM32F103</strong></div>
+                                <div class="twin-item"><span>Bộ xử lý AI biên</span><strong>ESP32-S3</strong></div>
+                                <div class="twin-item"><span>Định dạng dữ liệu</span><strong>JSON</strong></div>
+                                <div class="twin-item"><span>Lưu trữ</span><strong>MongoDB</strong></div>
                             </div>
                         </div>
                     </div>
@@ -460,11 +443,7 @@
                     <div class="table-container">
                         <table>
                             <thead><tr><th>Phiên</th><th>Kịch bản Tải</th><th>Thời lượng</th><th>Số mẫu</th><th>Mô hình</th><th>Trạng thái</th></tr></thead>
-                            <tbody>
-                                <tr><td>EXP-001</td><td>Xả tải hằng dòng 1A</td><td>60 phút</td><td>3600</td><td>ECM-1RC</td><td><span class="status-badge badge-green">Hoàn thành</span></td></tr>
-                                <tr><td>EXP-002</td><td>Tải biến thiên ngẫu nhiên</td><td>45 phút</td><td>2700</td><td>ECM-1RC</td><td><span class="status-badge badge-green">Hoàn thành</span></td></tr>
-                                <tr><td>EXP-003</td><td>Xả xung ngắt quãng</td><td>--</td><td>1250</td><td>ECM-1RC</td><td><span class="status-badge badge-blue">Đang ghi</span></td></tr>
-                            </tbody>
+                            <tbody><tr><td colspan="6" class="empty-state">Chưa có phiên thực nghiệm.</td></tr></tbody>
                         </table>
                     </div>
                 </div>
@@ -475,24 +454,24 @@
             <!-- ============================================ -->
             <div id="config-page" class="page-content hidden">
                 <header class="topbar">
-                    <div><h1>Cấu hình Hệ thống</h1><p class="subtitle">Thiết lập Thông số Pin & Quản trị Phần cứng</p></div>
+                    <div><h1>Cấu hình hệ thống</h1><p class="subtitle">Thiết lập loại pin và thao tác bảo trì phần cứng.</p></div>
                 </header>
                 
                 <div class="grid-2" style="margin-top: 1.5rem;">
                     <!-- Battery Profile Selection -->
                     <div class="glass-panel p-4 border-neon">
                         <h3 class="section-title text-blue"><i data-lucide="battery"></i> Cấu hình Loại Pin 18650</h3>
-                        <p class="text-sm text-muted mb-2">Chọn loại pin thực tế đang lắp để đồng bộ dung lượng định mức cho Digital Twin và STM32.</p>
+                        <p class="text-sm text-muted mb-2">Chọn loại pin đang sử dụng để cập nhật dung lượng cho bản sao số và bộ điều khiển.</p>
                         
                         <div class="input-group mt-4">
-                            <label>Danh mục Pin Chuẩn Li-ion 18650</label>
+                            <label>Loại pin Li-ion 18650</label>
                             <select id="config-battery-type">
-                                <option value="1">Generic 18650 1.2Ah</option>
-                                <option value="2">Generic 18650 1.6Ah</option>
-                                <option value="3">Generic 18650 1.8Ah</option>
-                                <option value="4">Generic 18650 2.0Ah</option>
-                                <option value="5" selected>Generic 18650 2.2Ah</option>
-                                <option value="6">Generic 18650 3.0Ah</option>
+                                <option value="1">Pin 18650 · 1.2 Ah</option>
+                                <option value="2">Pin 18650 · 1.6 Ah</option>
+                                <option value="3">Pin 18650 · 1.8 Ah</option>
+                                <option value="4">Pin 18650 · 2.0 Ah</option>
+                                <option value="5" selected>Pin 18650 · 2.2 Ah</option>
+                                <option value="6">Pin 18650 · 3.0 Ah</option>
                             </select>
                         </div>
                         
@@ -517,11 +496,11 @@
 
             <!-- App Footer -->
             <footer class="app-footer">
-                <p>© 2026 Hệ thống Thực thể số Pin Li-ion 4S (Battery Digital Twin & Edge AI) • Đồ án Tốt nghiệp Kỹ sư</p>
+                <p>© 2026 Battery Twin · Hệ thống giám sát pin Li-ion 4S</p>
                 <div class="footer-tags">
                     <span><i data-lucide="shield-check"></i> STM32 & ESP32-S3</span>
                     <span><i data-lucide="layers"></i> ECM Thevenin 1RC</span>
-                    <span><i data-lucide="cpu"></i> Edge AI TinyML</span>
+                    <span><i data-lucide="cpu"></i> AI biên TinyML</span>
                 </div>
             </footer>
         </main>
