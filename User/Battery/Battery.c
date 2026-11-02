@@ -54,19 +54,19 @@ extern uint16_t adc_buffer[5];
 #endif
 
 #ifndef NODE1_RATIO
-#define NODE1_RATIO   1.947f   // Node 1 (PA1) - C1: 3.68V (Node 1 = 3.68V)
+#define NODE1_RATIO   2.001f   // Node 1 (PA1) - Đưa Cell 1 về chuẩn 4.16V (VOM)
 #endif
 
 #ifndef NODE2_RATIO
-#define NODE2_RATIO   5.901f   // Node 2 (PA2) - Tinh chỉnh: đưa Cell 2 từ 3.83V lên đúng 3.89V (VOM)
+#define NODE2_RATIO   6.160f   // Node 2 (PA2) - Đưa Cell 2 về chuẩn 3.68V (VOM)
 #endif
 
 #ifndef NODE3_RATIO
-#define NODE3_RATIO   5.922f   // Node 3 (PA3) - C3: 3.82V (Node 3 = 11.42V)
+#define NODE3_RATIO   6.126f   // Node 3 (PA3) - Giữ Cell 3 chuẩn 4.17V (VOM)
 #endif
 
 #ifndef NODE4_RATIO
-#define NODE4_RATIO   5.768f   // Node 4 (PA4) - C4: 3.82V (Node 4 = 15.24V)
+#define NODE4_RATIO   5.742f   // Node 4 (PA4) - Đưa Cell 4 về chuẩn 3.69V (VOM)
 #endif
 
 void Battery_Update(void)
@@ -102,7 +102,7 @@ void Battery_Update(void)
         Battery.Voltage = bus_voltage_mv / 1000.0f;
     }
 
-    /* Lấy mẫu đa điểm 8 mẫu, delay đủ để DMA kịp cập nhật giá trị mới */
+    /* Lấy mẫu đa điểm 8 mẫu */
     uint32_t adc_sum[5] = {0};
     for (int s = 0; s < 8; s++)
     {
@@ -118,7 +118,7 @@ void Battery_Update(void)
     float raw_node3 = ((float)adc_sum[3] / (8.0f * 4095.0f)) * ADC_VREF * NODE3_RATIO;
     float raw_node4_adc = ((float)adc_sum[4] / (8.0f * 4095.0f)) * ADC_VREF * NODE4_RATIO;
 
-    /* Bộ lọc số Low-Pass Filter (EMA) thuần túy, loại bỏ hoàn toàn bypass để dập tắt triệt để gai nhiễu */
+    /* Bộ lọc số Low-Pass Filter (EMA) thuần túy đáp ứng tức thì */
     static float f_node1 = 0.0f;
     static float f_node2 = 0.0f;
     static float f_node3 = 0.0f;
@@ -127,19 +127,22 @@ void Battery_Update(void)
 
     if (!filter_init)
     {
-        f_node1 = raw_node1;
-        f_node2 = raw_node2;
-        f_node3 = raw_node3;
-        f_node4 = raw_node4_adc;
-        filter_init = 1;
+        if (raw_node1 > 0.5f)
+        {
+            f_node1 = raw_node1;
+            f_node2 = raw_node2;
+            f_node3 = raw_node3;
+            f_node4 = raw_node4_adc;
+            filter_init = 1;
+        }
     }
     else
     {
-        // Lọc số EMA liên tục 100% không cho phép bất kỳ xung gai nào xuyên thủng bộ lọc
-        f_node1 = f_node1 * 0.80f + raw_node1 * 0.20f;
-        f_node2 = f_node2 * 0.80f + raw_node2 * 0.20f;
-        f_node3 = f_node3 * 0.80f + raw_node3 * 0.20f;
-        f_node4 = f_node4 * 0.80f + raw_node4_adc * 0.20f;
+        // Lọc số EMA (70% cũ, 30% mới) vừa mượt vừa cập nhật ngay trong 1-2 giây
+        f_node1 = f_node1 * 0.70f + raw_node1 * 0.30f;
+        f_node2 = f_node2 * 0.70f + raw_node2 * 0.30f;
+        f_node3 = f_node3 * 0.70f + raw_node3 * 0.30f;
+        f_node4 = f_node4 * 0.70f + raw_node4_adc * 0.30f;
     }
 
     float v_node1 = f_node1;
@@ -167,18 +170,18 @@ void Battery_Update(void)
     Battery.NodeVoltage[2] = v_node3;
     Battery.NodeVoltage[3] = v_node4;
 
-    // Kiểm tra tính hợp lệ từng Node (Giới hạn vật lý pack 4S)
-    Battery.NodeFault[0] = (v_node1 > 4.5f);
-    Battery.NodeFault[1] = (v_node2 > 9.0f || v_node2 < v_node1);
-    // Node 3 lỗi nếu > 13.5V, hoặc lớn hơn cả Node 4 (phi lý), hoặc nhỏ hơn Node 2
-    Battery.NodeFault[2] = (v_node3 > 13.5f || (v_node4 > 1.0f && v_node3 >= v_node4) || v_node3 < v_node2);
-    Battery.NodeFault[3] = (v_node4 > 18.0f || (v_node2 > 1.0f && v_node4 < v_node2));
+    // Kiểm tra tính hợp lệ từng Node (Giới hạn an toàn pack 4S, nâng lên để không bị ngắt oan khi cell đầy 4.2V-4.3V)
+    Battery.NodeFault[0] = (v_node1 > 4.8f);
+    Battery.NodeFault[1] = (v_node2 > 9.6f || (v_node1 > 0.5f && v_node2 < v_node1));
+    // Node 3 lỗi nếu > 14.4V, hoặc lớn hơn cả Node 4 (phi lý), hoặc nhỏ hơn Node 2
+    Battery.NodeFault[2] = (v_node3 > 14.4f || (v_node4 > 1.0f && v_node3 >= v_node4) || v_node3 < v_node2);
+    Battery.NodeFault[3] = (v_node4 > 19.2f || (v_node2 > 1.0f && v_node4 < v_node2));
 
     // --- Tính toán Cell 1 ---
     Battery.CellVoltage[0] = (!Battery.NodeFault[0] && v_node1 > 0.5f) ? v_node1 : 0.0f;
 
     // --- Tính toán Cell 2 ---
-    if (!Battery.NodeFault[1] && !Battery.NodeFault[0] && v_node2 > v_node1)
+    if (!Battery.NodeFault[1] && v_node2 > v_node1)
     {
         float c2 = v_node2 - v_node1;
         Battery.CellVoltage[1] = (c2 <= 4.5f && c2 >= 0.0f) ? c2 : 0.0f;

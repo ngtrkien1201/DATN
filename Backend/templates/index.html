@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nền tảng Thực thể số Pin (Battery Digital Twin Platform)</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polygon points='12 2 2 7 12 12 22 7 12 2'/><polyline points='2 17 12 22 22 17'/><polyline points='2 12 12 17 22 12'/></svg>">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -376,6 +377,34 @@
                         <div class="twin-item mt-2"><span>Giai đoạn thoái hóa</span><span id="rul-stage" class="status-badge badge-green">Bình thường</span></div>
                     </div>
                 </div>
+
+                <!-- Electrochemical Aging Milestones -->
+                <div class="glass-panel p-4" style="margin-top: 1.5rem;">
+                    <h3 class="section-title text-cyan"><i data-lucide="git-commit"></i> Các Giai đoạn Thoái hóa Điện hóa (Electrochemical Aging Stages)</h3>
+                    <div class="grid-3" style="margin-top: 1rem; gap: 1rem;">
+                        <div style="background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.25); border-radius: 12px; padding: 15px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+                                <strong class="text-green">Giai đoạn 1: Khởi đầu</strong>
+                                <span class="status-badge badge-green">SOH 95 - 100%</span>
+                            </div>
+                            <p class="text-sm text-muted">Hình thành & ổn định màng điện giải SEI (Solid Electrolyte Interphase) trên cực âm Graphite. Suy giảm dung lượng diễn ra rất chậm.</p>
+                        </div>
+                        <div style="background: rgba(59,130,246,0.06); border: 1px solid rgba(59,130,246,0.25); border-radius: 12px; padding: 15px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+                                <strong class="text-blue">Giai đoạn 2: Tuyến tính</strong>
+                                <span class="status-badge badge-blue">SOH 80 - 95%</span>
+                            </div>
+                            <p class="text-sm text-muted">Mất mát ion Li+ hoạt tính và thoái hóa phân tử điện cực theo chu kỳ sạc/xả tiêu chuẩn. Mô hình MLP theo dõi theo quy luật tuyến tính.</p>
+                        </div>
+                        <div style="background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.25); border-radius: 12px; padding: 15px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+                                <strong class="text-red">Giai đoạn 3: Suy kiệt (EOL)</strong>
+                                <span class="status-badge badge-red">SOH &lt; 80%</span>
+                            </div>
+                            <p class="text-sm text-muted">Điểm uốn Knee-point xuất hiện. Tốc độ tăng nội trở R0 vọt nhanh, nguy cơ sụt áp đột ngột và tăng nhiệt. Khuyến nghị thay thế bộ Cell.</p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- ============================================ -->
@@ -402,6 +431,25 @@
                                 <div class="twin-item"><span>Độ nhạy AI (Recall)</span><strong>93.4 %</strong></div>
                                 <div class="twin-item"><span>Chỉ số F1-Score</span><strong>0.94</strong></div>
                                 <div class="twin-item"><span>Mẫu lỗi DB</span><strong>0</strong></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Hardware & Telemetry Specs -->
+                    <div class="glass-panel p-4">
+                        <h3 class="section-title text-cyan"><i data-lucide="cpu"></i> Cấu hình Phần cứng & Truyền thông</h3>
+                        <div class="grid-2">
+                            <div>
+                                <div class="twin-item"><span>Cảm biến đo lường</span><strong>INA226 (I2C Bus)</strong></div>
+                                <div class="twin-item"><span>Tần số lấy mẫu</span><strong>1.0 Hz (1000ms)</strong></div>
+                                <div class="twin-item"><span>Giao tiếp MCU</span><strong>UART DMA 115200 bps</strong></div>
+                                <div class="twin-item"><span>Giao thức IoT</span><strong>MQTT QoS 1</strong></div>
+                            </div>
+                            <div>
+                                <div class="twin-item"><span>Vi điều khiển BMS</span><strong>STM32F401 / F103</strong></div>
+                                <div class="twin-item"><span>Bộ xử lý Edge AI</span><strong>ESP32-S3 Dual-Core</strong></div>
+                                <div class="twin-item"><span>Định dạng gói tin</span><strong>JSON Payload</strong></div>
+                                <div class="twin-item"><span>Lưu trữ Cloud</span><strong>MongoDB Time-Series</strong></div>
                             </div>
                         </div>
                     </div>
@@ -438,7 +486,7 @@
                         
                         <div class="input-group mt-4">
                             <label>Danh mục Pin Chuẩn Li-ion 18650</label>
-                            <select id="config-battery-type" style="background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 12px 15px; color: white; border-radius: 10px; outline: none; font-family: 'Outfit'; font-size: 1rem; width: 100%;">
+                            <select id="config-battery-type">
                                 <option value="1">Generic 18650 1.2Ah</option>
                                 <option value="2">Generic 18650 1.6Ah</option>
                                 <option value="3">Generic 18650 1.8Ah</option>
@@ -467,6 +515,15 @@
                 </div>
             </div>
 
+            <!-- App Footer -->
+            <footer class="app-footer">
+                <p>© 2026 Hệ thống Thực thể số Pin Li-ion 4S (Battery Digital Twin & Edge AI) • Đồ án Tốt nghiệp Kỹ sư</p>
+                <div class="footer-tags">
+                    <span><i data-lucide="shield-check"></i> STM32 & ESP32-S3</span>
+                    <span><i data-lucide="layers"></i> ECM Thevenin 1RC</span>
+                    <span><i data-lucide="cpu"></i> Edge AI TinyML</span>
+                </div>
+            </footer>
         </main>
     </div>
 

@@ -114,8 +114,9 @@ function createChart(canvasId, datasets, isDual = false) {
 function initCharts() {
     // Overview
     charts.overview = createChart('c-overview', [
-        { label: 'Điện áp (V)', data: [], borderColor: '#3b82f6', tension: 0.4, pointRadius: 0, borderWidth: 2, yAxisID: 'y' }
-    ]);
+        { label: 'Điện áp Pack (V)', data: [], borderColor: '#3b82f6', tension: 0.4, pointRadius: 0, borderWidth: 2 },
+        { label: 'Dòng điện (A)', data: [], borderColor: '#f59e0b', tension: 0.4, pointRadius: 0, borderWidth: 2 }
+    ], true);
     
     // Live Monitoring
     charts.lmV = createChart('c-lm-v', [{ data: [], borderColor: '#3b82f6', backgroundColor: '#3b82f622', fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 }]);
@@ -126,12 +127,12 @@ function initCharts() {
     // Validation
     charts.valVolt = createChart('c-val-volt', [
         { label: 'Thực tế (V_meas)', data: [], borderColor: '#3b82f6', tension: 0.4, pointRadius: 0, borderWidth: 2 },
-        { label: 'Mô hình (V_twin)', data: [], borderColor: '#10b981', tension: 0.4, pointRadius: 0, borderWidth: 2 }
+        { label: 'Mô hình (V_twin)', data: [], borderColor: '#10b981', tension: 0.4, pointRadius: 0, borderWidth: 2, borderDash: [6, 4] }
     ], true);
     
     charts.valSoc = createChart('c-val-soc', [
         { label: 'SOC Phần cứng', data: [], borderColor: '#3b82f6', tension: 0.4, pointRadius: 0, borderWidth: 2 },
-        { label: 'SOC Digital Twin', data: [], borderColor: '#10b981', tension: 0.4, pointRadius: 0, borderWidth: 2 }
+        { label: 'SOC Digital Twin', data: [], borderColor: '#10b981', tension: 0.4, pointRadius: 0, borderWidth: 2, borderDash: [6, 4] }
     ], true);
     
     charts.valErr = createChart('c-val-err', [{ data: [], borderColor: '#ef4444', backgroundColor: '#ef444422', fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 }]);
@@ -183,6 +184,55 @@ const AGING_STAGE_MAP = {
     "Degraded": "Suy giảm (Degraded)",
     "End of Life": "Hết vòng đời (EOL)"
 };
+
+function formatLatency(ms) {
+    if (ms === undefined || ms === null || isNaN(ms)) return "--";
+    const s = ms / 1000;
+    if (s < 5) return "Thời gian thực (< 5s)";
+    if (s < 60) return `${s.toFixed(1)} s trước`;
+    if (s < 3600) return `${Math.floor(s / 60)} phút trước`;
+    return `> ${(s / 3600).toFixed(1)} giờ trước`;
+}
+
+function updateAlerts(d, timeStr) {
+    const alertContainer = document.getElementById('active-alerts');
+    if (!alertContainer) return;
+    
+    let alertsHtml = '';
+    const isOnline = d.sync_metrics && d.sync_metrics.status !== "Disconnected";
+    
+    if (!isOnline) {
+        alertsHtml += `<div class="alert-item alert-danger"><i data-lucide="wifi-off"></i> Mất kết nối telemetry với ESP32/STM32 (${timeStr}). Đang chờ dữ liệu...</div>`;
+    }
+    
+    if (d.edge_ai && d.edge_ai.anomaly_score >= 0.7) {
+        const faultName = AI_CLASS_MAP_VN[d.edge_ai.anomaly_class] || d.edge_ai.anomaly_class;
+        alertsHtml += `<div class="alert-item alert-danger"><i data-lucide="alert-triangle"></i> Cảnh báo Edge AI: Phát hiện bất thường "${faultName}" (Score: ${d.edge_ai.anomaly_score.toFixed(2)}) lúc ${timeStr}.</div>`;
+    } else if (d.edge_ai && d.edge_ai.anomaly_score >= 0.3) {
+        alertsHtml += `<div class="alert-item alert-warning"><i data-lucide="alert-circle"></i> Chú ý: Chỉ số bất thường tăng nhẹ (${d.edge_ai.anomaly_score.toFixed(2)}). Hệ thống tiếp tục theo dõi.</div>`;
+    }
+    
+    if (d.real.voltage > 16.8) {
+        alertsHtml += `<div class="alert-item alert-danger"><i data-lucide="zap"></i> Cảnh báo quá áp Pack: ${d.real.voltage}V vượt ngưỡng an toàn 16.8V!</div>`;
+    } else if (d.real.voltage < 10.0 && d.real.voltage > 0) {
+        alertsHtml += `<div class="alert-item alert-danger"><i data-lucide="battery-warning"></i> Cảnh báo sụt áp sâu Pack: ${d.real.voltage}V < 10.0V! Cần ngắt tải ngay.</div>`;
+    }
+    
+    if (d.real.soc <= 15.0 && d.real.soc > 0) {
+        alertsHtml += `<div class="alert-item alert-warning"><i data-lucide="battery"></i> Dung lượng pin thấp: SOC = ${d.real.soc}%. Khuyến nghị sạc bổ sung.</div>`;
+    }
+    
+    if (d.real.temperature >= 45.0) {
+        alertsHtml += `<div class="alert-item alert-danger"><i data-lucide="thermometer"></i> Cảnh báo nhiệt độ cao: ${d.real.temperature}°C!</div>`;
+    }
+    
+    if (alertsHtml === '') {
+        alertsHtml = `<div class="alert-item alert-success"><i data-lucide="check-circle-2"></i> Hệ thống đang vận hành ổn định. Dữ liệu Digital Twin và Edge AI đồng bộ tốt (${timeStr}).</div>`;
+    }
+    
+    alertContainer.innerHTML = alertsHtml;
+    if (window.lucide) lucide.createIcons();
+}
 
 // ============================================================
 // 4. DATA POLLING & UI UPDATE
@@ -288,7 +338,7 @@ async function updateTwin() {
         let residual = Math.abs(d.real.voltage - d.twin.terminal_voltage).toFixed(3);
         if(document.getElementById('dt-sync-res')) document.getElementById('dt-sync-res').innerText = residual + ' V';
         if(document.getElementById('dt-sync-err')) document.getElementById('dt-sync-err').innerText = d.errors.voltage + ' %';
-        if(document.getElementById('dt-sync-age')) document.getElementById('dt-sync-age').innerText = (d.sync_metrics.latency_ms / 1000).toFixed(1) + ' s';
+        if(document.getElementById('dt-sync-age')) document.getElementById('dt-sync-age').innerText = formatLatency(d.sync_metrics.latency_ms);
         
         if(document.getElementById('dt-tb-ocv')) document.getElementById('dt-tb-ocv').innerText = d.twin.ocv + ' V';
         if(document.getElementById('dt-tb-tv')) document.getElementById('dt-tb-tv').innerText = d.twin.terminal_voltage + ' V';
@@ -383,13 +433,21 @@ async function updateTwin() {
         if(document.getElementById('rul-est-cap')) document.getElementById('rul-est-cap').innerText = d.twin.remaining_capacity + ' Ah';
         if(document.getElementById('rul-stage')) {
             const rawStage = d.aging_model.aging_stage;
-            document.getElementById('rul-stage').innerText = AGING_STAGE_MAP[rawStage] || rawStage;
+            const badgeEl = document.getElementById('rul-stage');
+            badgeEl.innerText = AGING_STAGE_MAP[rawStage] || rawStage;
+            if (rawStage === 'Normal') badgeEl.className = 'status-badge badge-green';
+            else if (rawStage === 'Degraded') badgeEl.className = 'status-badge badge-orange';
+            else badgeEl.className = 'status-badge badge-red';
         }
+
+        // Cập nhật cảnh báo & thông báo động
+        updateAlerts(d, timeStr);
 
         // ------------------ UPDATE CHARTS ------------------
         let timestamp = now.getTime();
         
         pushData(charts.overview, 0, timestamp, d.real.voltage);
+        pushData(charts.overview, 1, timestamp, d.real.current);
         
         pushData(charts.lmV, 0, timestamp, d.real.voltage);
         pushData(charts.lmI, 0, timestamp, d.real.current);
