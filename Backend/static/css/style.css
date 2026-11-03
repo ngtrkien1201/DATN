@@ -243,6 +243,12 @@ select option { color: var(--text); background: var(--surface); }
 .btn-outline { border: 1px solid var(--line); background: var(--surface); color: var(--text); }
 .btn-outline:hover { border-color: #45617f; background: var(--surface-raised); }
 .btn-outline i, .btn-primary i { width: 16px; height: 16px; }
+.demo-mode-btn.active {
+  border-color: #3b82f6 !important;
+  background: #2563eb !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 12px rgba(59, 130, 246, .45);
+}
 .text-muted { color: var(--muted); }
 
 .app-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; margin-top: 22px; padding: 14px 2px; border-top: 1px solid var(--line-soft); color: var(--muted); font-size: 11px; }

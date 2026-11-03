@@ -241,6 +241,64 @@ function updateAlerts(d, timeStr) {
 // 4. DATA POLLING & UI UPDATE
 // ============================================================
 let isFetching = false;
+let activeDemoScenario = 'off';
+
+const DEMO_SCENARIOS = {
+    normal: { label: 'Bình thường', cells: [3.82, 3.81, 3.83, 3.82], current: 0.45, temperature: 31, soc: 72, ai: 0 },
+    imbalance: { label: 'Lệch cell', cells: [3.68, 3.69, 3.94, 3.68], current: 0.45, temperature: 32, soc: 68, ai: 5 },
+    overvoltage: { label: 'Quá áp', cells: [3.82, 3.81, 4.25, 3.82], current: 0.35, temperature: 33, soc: 84, ai: 1 },
+    undervoltage: { label: 'Sụt áp', cells: [3.65, 3.67, 2.90, 3.66], current: 0.40, temperature: 32, soc: 18, ai: 2 },
+    overcurrent: { label: 'Quá dòng', cells: [3.78, 3.77, 3.78, 3.79], current: 3.4, temperature: 36, soc: 55, ai: 3 },
+    overtemperature: { label: 'Quá nhiệt', cells: [3.78, 3.77, 3.78, 3.79], current: 0.50, temperature: 56, soc: 55, ai: 4 }
+};
+
+function applyDemoScenario(data) {
+    const scenario = DEMO_SCENARIOS[activeDemoScenario];
+    if (!scenario) return data;
+
+    const d = structuredClone(data);
+    const packVoltage = scenario.cells.reduce((sum, value) => sum + value, 0);
+    const power = scenario.current * packVoltage;
+    const aiNames = ['Normal Operation', 'Over-voltage', 'Under-voltage', 'Over-current', 'Over-heat', 'Cell Imbalance'];
+    d.real = { ...d.real, voltage: +packVoltage.toFixed(2), current: scenario.current, power: +power.toFixed(2), temperature: scenario.temperature, soc: scenario.soc, status: 'Discharging' };
+    d.cells = { ...d.cells, cv: scenario.cells, csoc: scenario.cells.map(() => scenario.soc), cai_class: scenario.cells.map((_, i) => scenario.ai === 5 ? (i === 2 ? 5 : 0) : scenario.ai) };
+    d.edge_ai = { ...d.edge_ai, status: 'Running (DEMO)', status_label: scenario.ai === 0 ? 'Normal' : 'Alert', anomaly_class: aiNames[scenario.ai], anomaly_score: scenario.ai === 0 ? 0.04 : 0.96, confidence: scenario.ai === 0 ? 96 : 96, inference_time: 1.2 };
+    d.twin = { ...d.twin, voltage: +(packVoltage - 0.08).toFixed(2), terminal_voltage: +(packVoltage - 0.08).toFixed(2), ocv: +(packVoltage + 0.12).toFixed(2), soc: Math.max(0, scenario.soc - 1.5), remaining_capacity: +(2.2 * scenario.soc / 100).toFixed(2) };
+    d.errors = { ...d.errors, voltage: 0.5, voltage_mv: 80 };
+    d.sync_metrics = { ...d.sync_metrics, status: 'Synchronized', latency_ms: 120 };
+    d.demo_mode = scenario.label;
+    return d;
+}
+
+async function selectDemoScenario(mode) {
+    activeDemoScenario = mode;
+    document.querySelectorAll('.demo-mode-btn').forEach(button => {
+        button.classList.toggle('active', button.dataset.demo === mode);
+    });
+    const scenario = DEMO_SCENARIOS[mode];
+    const status = document.getElementById('demo-mode-status');
+    if (status) status.textContent = scenario ? `Đang trình diễn: ${scenario.label}. Dữ liệu trên dashboard là mô phỏng.` : 'Đang hiển thị dữ liệu thực.';
+
+    // Gửi trạng thái đèn/còi đến ESP32 qua hàng đợi lệnh hiện có.
+    // Lệnh demo chỉ điều khiển ngõ ra cảnh báo, không đi vào STM32/MOSFET.
+    const alarm = !scenario ? 'OFF' : (mode === 'normal' ? 'SAFE' : (mode === 'imbalance' ? 'WARNING' : 'FAULT'));
+    try {
+        const response = await fetch('/api/command', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({command: `DEMO_ALARM:${alarm}`})
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        if (status && scenario) status.textContent += ' Lệnh LED/còi đã được gửi tới gateway.';
+    } catch (error) {
+        console.warn('Demo alarm command could not be queued:', error);
+        if (status && scenario) status.textContent += ' Chưa kết nối gateway; dashboard vẫn đang mô phỏng.';
+    }
+    updateTwin();
+}
+
+document.querySelectorAll('.demo-mode-btn').forEach(button => {
+    button.addEventListener('click', () => selectDemoScenario(button.dataset.demo));
+});
 
 async function updateTwin() {
     if (isFetching) return;
@@ -248,7 +306,7 @@ async function updateTwin() {
     try {
         const res = await fetch(`/api/digital-twin`);
         if (!res.ok) throw new Error(`Dashboard API returned ${res.status}`);
-        const d = await res.json();
+        const d = applyDemoScenario(await res.json());
         
         const now = new Date();
         const timeStr = now.toLocaleTimeString();
@@ -264,7 +322,7 @@ async function updateTwin() {
         document.getElementById('gb-mqtt').innerText = "Đã kết nối";
         document.getElementById('gb-mqtt').className = "text-green";
         
-        document.getElementById('gb-mode').innerText = STATUS_MODE_MAP[d.real.status] || d.real.status;
+        document.getElementById('gb-mode').innerText = d.demo_mode ? `DEMO · ${d.demo_mode}` : (STATUS_MODE_MAP[d.real.status] || d.real.status);
         
         // ------------------ PAGE 1: SYSTEM OVERVIEW ------------------
         if(document.getElementById('ov-v')) document.getElementById('ov-v').innerText = d.real.voltage + ' V';

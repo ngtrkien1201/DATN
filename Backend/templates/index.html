@@ -67,6 +67,21 @@
                     </div>
                 </div>
 
+                <div class="glass-panel p-4" style="margin-top: 1rem; border: 1px solid rgba(59,130,246,.35);">
+                    <h3 class="section-title text-blue"><i data-lucide="play-circle"></i> Chế độ trình diễn hệ thống</h3>
+                    <p class="text-sm text-muted mb-2">Chọn tình huống để minh họa dashboard, Digital Twin và Edge AI. Dữ liệu hiển thị là dữ liệu mô phỏng; MOSFET không bị điều khiển bởi chế độ này.</p>
+                    <div class="actions" style="display:flex; flex-wrap:wrap; gap:.5rem;">
+                        <button type="button" class="btn-outline demo-mode-btn" data-demo="normal">Bình thường</button>
+                        <button type="button" class="btn-outline demo-mode-btn" data-demo="imbalance">Lệch cell</button>
+                        <button type="button" class="btn-outline demo-mode-btn" data-demo="overvoltage">Quá áp</button>
+                        <button type="button" class="btn-outline demo-mode-btn" data-demo="undervoltage">Sụt áp</button>
+                        <button type="button" class="btn-outline demo-mode-btn" data-demo="overcurrent">Quá dòng</button>
+                        <button type="button" class="btn-outline demo-mode-btn" data-demo="overtemperature">Quá nhiệt</button>
+                        <button type="button" class="btn-outline demo-mode-btn" data-demo="off">Thoát demo</button>
+                    </div>
+                    <div id="demo-mode-status" class="text-sm" style="margin-top:.75rem;">Đang hiển thị dữ liệu thực.</div>
+                </div>
+
                 <div class="grid-4" style="margin-top: 1.5rem;">
                     <!-- Physical Battery -->
                     <div class="glass-panel p-4">

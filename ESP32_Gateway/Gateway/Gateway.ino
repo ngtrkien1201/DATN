@@ -52,6 +52,38 @@ enum AlarmLevel {
 
 AlarmLevel currentAlarm = ALARM_OFF;
 
+// Che do trinh dien duoc chon tu dashboard. Chi dieu khien LED/coi ESP32;
+// khong thay doi telemetry that va khong gui lenh dieu khien MOSFET STM32.
+enum DemoMode { DEMO_DISABLED, DEMO_NORMAL, DEMO_IMBALANCE, DEMO_FAULT };
+volatile DemoMode demoMode = DEMO_DISABLED;
+volatile AlarmLevel telemetryAlarm = ALARM_OFF;
+
+bool applyGatewayCommand(const String &command)
+{
+    if (!command.startsWith("DEMO_ALARM:")) return false;
+
+    String alarm = command.substring(11);
+    alarm.trim();
+    alarm.toUpperCase();
+    if (alarm == "SAFE") {
+        demoMode = DEMO_NORMAL;
+        currentAlarm = ALARM_SAFE;
+    } else if (alarm == "WARNING") {
+        demoMode = DEMO_IMBALANCE;
+        currentAlarm = ALARM_WARNING;
+    } else if (alarm == "FAULT") {
+        demoMode = DEMO_FAULT;
+        currentAlarm = ALARM_FAULT;
+    } else if (alarm == "OFF") {
+        demoMode = DEMO_DISABLED;
+        currentAlarm = telemetryAlarm;
+    } else {
+        return false;
+    }
+    Serial.printf("[DEMO] Dashboard command: %s\n", alarm.c_str());
+    return true;
+}
+
 // Danh mục phân lớp Anomaly của mô hình AI
 const char* AI_CLASS_NAMES[] = {
     "Normal Operation",
@@ -70,6 +102,75 @@ const char* AI_CLASS_NAMES[] = {
 #define CELL_IMBALANCE_MAX  0.20f   // Độ lệch áp tối đa giữa các cell (200mV)
 
 WiFiClientSecure secureClient;
+// Bộ đệm dữ liệu Web riêng biệt (Non-blocking)
+String latestJsonPayload = "";
+bool hasNewDataForWeb = false;
+
+// ============================================================
+// LUỒNG CẢNH BÁO ĐỘC LẬP (FREERTOS TASK CHẠY TÁCH BIỆT WIFI)
+// ============================================================
+void TaskAlarm(void *pvParameters)
+{
+    (void)pvParameters;
+    static unsigned long lastBuzzerTick = 0;
+    static bool buzzerToggle = false;
+
+    for (;;)
+    {
+        unsigned long now = millis();
+        switch (currentAlarm) 
+        {
+            case ALARM_SAFE:
+                // Trạng thái BÌNH THƯỜNG: LED Xanh sáng, còi tắt
+                digitalWrite(LED_GREEN_PIN, HIGH);
+                digitalWrite(LED_YELLOW_PIN, LOW);
+                digitalWrite(LED_RED_PIN, LOW);
+                digitalWrite(BUZZER_PIN, LOW);
+                buzzerToggle = false;
+                break;
+
+            case ALARM_WARNING:
+                // Trạng thái CẢNH BÁO (Lệch cell > 200mV): LED Vàng sáng đứng yên
+                digitalWrite(LED_GREEN_PIN, LOW);
+                digitalWrite(LED_YELLOW_PIN, HIGH);
+                digitalWrite(LED_RED_PIN, LOW);
+                // Còi bíp nhẹ 1 nhịp ngắn (100ms) định kỳ mỗi 3 giây để báo hiệu
+                if (now - lastBuzzerTick >= 3000) {
+                    lastBuzzerTick = now;
+                    digitalWrite(BUZZER_PIN, HIGH);
+                    vTaskDelay(pdMS_TO_TICKS(100));
+                    digitalWrite(BUZZER_PIN, LOW);
+                }
+                break;
+
+            case ALARM_FAULT:
+                // Trạng thái SỰ CỐ NGUY HIỂM (Quá áp, Thấp áp, Quá nhiệt, Quá dòng):
+                // LED Đỏ sáng đứng yên + Còi kêu dồn dập chu kỳ 200ms ON / 200ms OFF
+                digitalWrite(LED_GREEN_PIN, LOW);
+                digitalWrite(LED_YELLOW_PIN, LOW);
+                digitalWrite(LED_RED_PIN, HIGH);
+                if (now - lastBuzzerTick >= 200) {
+                    lastBuzzerTick = now;
+                    buzzerToggle = !buzzerToggle;
+                    digitalWrite(BUZZER_PIN, buzzerToggle ? HIGH : LOW);
+                }
+                break;
+
+            case ALARM_OFF:
+            default:
+                // Khi chưa có dữ liệu từ STM32: Tắt tất cả
+                digitalWrite(LED_GREEN_PIN, LOW);
+                digitalWrite(LED_YELLOW_PIN, LOW);
+                digitalWrite(LED_RED_PIN, LOW);
+                digitalWrite(BUZZER_PIN, LOW);
+                buzzerToggle = false;
+                break;
+        }
+
+        // Tần số quét 50ms cực nhạy và mượt mà, không bao giờ bị nghẽn bởi WiFi/Web
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
+}
 unsigned long lastWifiCheck = 0;
 unsigned long lastWaitingMsg = 0;
 
@@ -79,11 +180,10 @@ void setup_wifi()
     Serial.print("Connecting to WiFi: ");
     Serial.println(ssid);
 
-    WiFi.disconnect(true);
-    delay(50);
     WiFi.mode(WIFI_STA);
+    WiFi.setTxPower(WIFI_POWER_15dBm);
+    WiFi.setAutoReconnect(true);
     WiFi.begin(ssid, password);
-    // Ket noi WiFi chay ngam tren Core 0 cua ESP32, KHONG block he thong de doc UART ngay lap tuc
 }
 
 void setup() 
@@ -128,10 +228,14 @@ void setup()
     pinMode(LED_RED_PIN, OUTPUT);
     pinMode(BUZZER_PIN, OUTPUT);
 
-    // [POST] HIEU UNG KHOI DONG: 3 LED sang lan luot (TUYET DOI khong kich coi o day de tranh sut ap nguon)
-    digitalWrite(LED_GREEN_PIN, HIGH);  delay(150); digitalWrite(LED_GREEN_PIN, LOW);
-    digitalWrite(LED_YELLOW_PIN, HIGH); delay(150); digitalWrite(LED_YELLOW_PIN, LOW);
-    digitalWrite(LED_RED_PIN, HIGH);    delay(150); digitalWrite(LED_RED_PIN, LOW);
+    // Ban dau tat tat ca den, trang thai nao thi TaskAlarm se tu bat dung den do
+    digitalWrite(LED_GREEN_PIN, LOW);
+    digitalWrite(LED_YELLOW_PIN, LOW);
+    digitalWrite(LED_RED_PIN, LOW);
+    digitalWrite(BUZZER_PIN, LOW);
+
+    // KHỞI CHẠY LUỒNG CẢNH BÁO ĐỘC LẬP (Ưu tiên cao nhất Priority 2)
+    xTaskCreate(TaskAlarm, "TaskAlarm", 2048, NULL, 2, NULL);
 
     setup_wifi();
 }
@@ -346,11 +450,14 @@ void processBatteryTelemetry(String jsonString)
     // ============================================================
     // [CAP NHAT CANH BAO TUC THI - 0 DELAY]
     if (pack_ai_class == 1 || pack_ai_class == 2 || pack_ai_class == 3 || pack_ai_class == 4) {
-        currentAlarm = ALARM_FAULT;    // Su co nguy hiem -> Den Do sang dung yen + Coi keu
+        telemetryAlarm = ALARM_FAULT;    // Su co nguy hiem -> Den Do sang dung yen + Coi keu
     } else if (pack_ai_class == 5 || cell_imbalance > CELL_IMBALANCE_MAX) {
-        currentAlarm = ALARM_WARNING;  // Lech cell -> Den Vang sang dung yen
+        telemetryAlarm = ALARM_WARNING;  // Lech cell -> Den Vang sang dung yen
     } else {
-        currentAlarm = ALARM_SAFE;     // Binh thuong -> Den Xanh sang dung yen
+        telemetryAlarm = ALARM_SAFE;     // Binh thuong -> Den Xanh sang dung yen
+    }
+    if (demoMode == DEMO_DISABLED) {
+        currentAlarm = telemetryAlarm;
     }
 
     // KICH HOAT NGAY LAP TUC DEN VA COI (KHONG CHO DOI GUI MANG HTTP)
@@ -360,108 +467,64 @@ void processBatteryTelemetry(String jsonString)
     Serial.printf("-> [UPLINK TO STM32] Phan hoi ket qua AI: AI_RES:%d,%.1f\n", pack_ai_class, pack_ai_score);
 
     // ============================================================
-    // BÆ¯á»šC 4: Äáº¨Y Dá»® LIá»†U LÃŠN VERCEL SERVER (Äá»‹nh ká»³ má»—i 3s Ä‘á»ƒ khÃ´ng ngháº½n)
+    // BƯỚC 4: LƯU GÓI JSON CHO LUỒNG GỬI WEB NỀN (NON-BLOCKING)
     // ============================================================
+    latestJsonPayload = updatedJsonString;
+    hasNewDataForWeb = true;
+}
+
+// Hàm tương thích (Hệ thống cảnh báo đã chuyển sang TaskAlarm FreeRTOS độc lập)
+void updateAlarmIndicators() {}
+
+void loop() 
+{
+    // 1. Luồng gửi dữ liệu lên Web Vercel (chạy non-blocking độc lập, định kỳ mỗi 3s khi có WiFi)
     static unsigned long lastHttpPostTick = 0;
-    if (WiFi.status() == WL_CONNECTED && (millis() - lastHttpPostTick >= 3000)) {
+    if (WiFi.status() == WL_CONNECTED && hasNewDataForWeb && (millis() - lastHttpPostTick >= 3000)) 
+    {
         lastHttpPostTick = millis();
+        hasNewDataForWeb = false;
+
         HTTPClient http;
         http.begin(secureClient, serverUrl);
         http.addHeader("Content-Type", "application/json");
         http.setReuse(false);
-        http.setTimeout(1200); // Timeout ngan 1.2s tranh lam lag mach
+        http.setTimeout(1000); // Timeout ngắn 1.0s tuyệt đối không làm lag mạch
 
-        int httpResponseCode = http.POST(updatedJsonString);
-        
+        int httpResponseCode = http.POST(latestJsonPayload);
         if (httpResponseCode > 0) {
             String response = http.getString();
             Serial.printf("-> [HTTP POST] Thành công! Response code: %d\n", httpResponseCode);
-            
-            // ========================================================
-            // BƯỚC 4: NHẬN LỆNH CẤU HÌNH TỪ WEB VÀ GỬI XUỐNG STM32
-            // ========================================================
+
+            // Nhận lệnh cấu hình từ Web và gửi xuống STM32
             int cmdIndex = response.indexOf("\"command\":\"");
             if (cmdIndex > 0) {
                 int start = cmdIndex + 11;
                 int end = response.indexOf("\"", start);
                 if (end > start) {
                     String cmd = response.substring(start, end);
-                    // Gửi lệnh xuống STM32 qua Serial1 (UART) kèm \r\n
-                    Serial1.println(cmd);
-                    Serial.println("-> [DOWNLINK] Gửi lệnh cấu hình xuống STM32: " + cmd);
+                    if (!applyGatewayCommand(cmd)) {
+                        Serial1.println(cmd);
+                        Serial.println("-> [DOWNLINK] Gửi lệnh cấu hình xuống STM32: " + cmd);
+                    }
                 }
             }
         } else {
             Serial.printf("-> [HTTP POST LỖI] Mã lỗi: %d\n", httpResponseCode);
         }
         http.end();
-    } else {
-        Serial.println("-> [WIFI] Chưa kết nối, không thể gửi dữ liệu lên Vercel.");
     }
-}
 
-void updateAlarmIndicators() 
-{
-    static unsigned long lastBuzzerTick = 0;
-    static bool buzzerToggle = false;
-
-    switch (currentAlarm) 
-    {
-        case ALARM_SAFE:
-            // Trang thai BINH THUONG: LED XANH SANG DUNG YEN, coi tat
-            digitalWrite(LED_GREEN_PIN, HIGH);
-            digitalWrite(LED_YELLOW_PIN, LOW);
-            digitalWrite(LED_RED_PIN, LOW);
-            digitalWrite(BUZZER_PIN, LOW);
-            break;
-
-        case ALARM_WARNING:
-            // Trang thai CANH BAO: LED VANG SANG DUNG YEN, coi tat
-            digitalWrite(LED_GREEN_PIN, LOW);
-            digitalWrite(LED_YELLOW_PIN, HIGH);
-            digitalWrite(LED_RED_PIN, LOW);
-            digitalWrite(BUZZER_PIN, LOW);
-            break;
-
-        case ALARM_FAULT:
-            // Trang thai SU CO NGUY HIEM: LED DO SANG DUNG YEN + COI KEU BIP BIP
-            digitalWrite(LED_GREEN_PIN, LOW);
-            digitalWrite(LED_YELLOW_PIN, LOW);
-            digitalWrite(LED_RED_PIN, HIGH);
-            // Coi keu bip bip chu ky 200ms ON / 200ms OFF
-            if (millis() - lastBuzzerTick >= 200) {
-                lastBuzzerTick = millis();
-                buzzerToggle = !buzzerToggle;
-                digitalWrite(BUZZER_PIN, buzzerToggle ? HIGH : LOW);
-            }
-            break;
-
-        case ALARM_OFF:
-        default:
-            // Khi chua doc duoc du lieu tu STM32: Tat tat ca
-            digitalWrite(LED_GREEN_PIN, LOW);
-            digitalWrite(LED_YELLOW_PIN, LOW);
-            digitalWrite(LED_RED_PIN, LOW);
-            digitalWrite(BUZZER_PIN, LOW);
-            break;
-    }
-}
-
-void loop() 
-{
-    // Luon cap nhat trang thai LED va Buzzer lien tuc
-    updateAlarmIndicators();
-    // Kiểm tra và thử kết nối lại WiFi định kỳ mỗi 15 giây nếu bị rớt mạng
+    // 2. Kiểm tra trạng thái WiFi định kỳ mỗi 15 giây (chỉ in log ngầm, không gọi hàm block reconnect)
+    static unsigned long lastWifiLog = 0;
     if (WiFi.status() != WL_CONNECTED) {
-        unsigned long currentMillis = millis();
-        if (currentMillis - lastWifiCheck > 15000) {
-            lastWifiCheck = currentMillis;
-            Serial.println("-> [WIFI] Đang thử kết nối lại...");
-            WiFi.reconnect();
+        if (millis() - lastWifiLog > 15000) {
+            lastWifiLog = millis();
+            Serial.println("-> [WIFI] Đang tìm sóng WiFi ngầm (Không ảnh hưởng Còi/Đèn)...");
         }
     }
 
-    // Đọc dữ liệu từ STM32 qua UART
+    // 3. Đọc dữ liệu từ STM32 qua UART
     bool packetProcessed = false;
     while (Serial1.available()) 
     {
@@ -470,7 +533,6 @@ void loop()
 
         if (line.length() > 0) 
         {
-            // Kiểm tra xem dòng nhận được có chứa gói JSON không
             int jsonIndex = line.indexOf("JSON:");
             if (jsonIndex >= 0) 
             {
@@ -480,14 +542,13 @@ void loop()
                 if (jsonString.startsWith("{") && jsonString.endsWith("}")) {
                     processBatteryTelemetry(jsonString);
                     packetProcessed = true;
-                    break; // Thoát vòng lặp đọc sau khi đã xử lý xong 1 gói telemetry
+                    break;
                 } else {
-                    Serial.println("-> [UART] Gói JSON bị cắt xén hoặc sai định dạng: " + jsonString);
+                    Serial.println("-> [UART] Gói JSON bị cắt xén: " + jsonString);
                 }
             } 
             else if (line.indexOf("Pack Vol:") >= 0 || line.indexOf("Battery") >= 0 || line.indexOf("I2C") >= 0 || line.indexOf("INA") >= 0) 
             {
-                // In ra khi nhận được các dòng text debug từ STM32
                 Serial.println("-> [STM32 Debug]: " + line);
             }
         }
@@ -495,10 +556,9 @@ void loop()
 
     if (!packetProcessed && !Serial1.available()) 
     {
-        // Thông báo trạng thái mỗi 5 giây nếu chưa nhận được tín hiệu UART từ STM32
         if (millis() - lastWaitingMsg > 5000) {
             lastWaitingMsg = millis();
-            Serial.printf("-> [ESP32] Đang chờ UART từ STM32 (Chân RX: GPIO %d, TX: GPIO %d, Baud: %d)...\n", RX_PIN, TX_PIN, UART_BAUD);
+            Serial.printf("-> [ESP32] Đang chờ UART từ STM32 (RX: GPIO %d, TX: GPIO %d)...\n", RX_PIN, TX_PIN);
         }
     }
 }
