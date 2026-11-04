@@ -58,7 +58,7 @@ extern uint16_t adc_buffer[5];
 #endif
 
 #ifndef NODE2_RATIO
-#define NODE2_RATIO   6.160f   // Node 2 (PA2) - Đưa Cell 2 về chuẩn 3.68V (VOM)
+#define NODE2_RATIO   6.124f   // Node 2 (PA2) - Tinh chinh chuan VOM: PA2=1.21V -> Node2=7.41V -> Cell2=3.88V
 #endif
 
 #ifndef NODE3_RATIO
@@ -184,11 +184,23 @@ void Battery_Update(void)
     if (!Battery.NodeFault[1] && v_node2 > v_node1)
     {
         float c2 = v_node2 - v_node1;
-        Battery.CellVoltage[1] = (c2 <= 4.5f && c2 >= 0.0f) ? c2 : 0.0f;
+        if (c2 < 0.0f) c2 = 0.0f;
+        if (c2 > 4.35f) c2 = 4.35f;
+        Battery.CellVoltage[1] = c2;
     }
     else
     {
-        Battery.CellVoltage[1] = 0.0f;
+        // Cơ chế cách ly chống kéo sập Cell 2 về 0V khi ADC nhiễu hoặc sai lệch tức thời
+        if (v_node2 > 2.0f)
+        {
+            float est_c2 = v_node2 / 2.0f;
+            if (est_c2 > 4.35f) est_c2 = 4.35f;
+            Battery.CellVoltage[1] = est_c2;
+        }
+        else
+        {
+            Battery.CellVoltage[1] = 0.0f;
+        }
     }
 
     // --- Tính toán Cell 3 và Cell 4 (Có cơ chế cách ly chống kéo sập Cell khi Node 3 lỗi/bão hòa) ---
