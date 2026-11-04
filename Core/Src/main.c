@@ -70,6 +70,7 @@ uint16_t adc_buffer[5]; // [0]=Temp, [1]=V1, [2]=V2, [3]=V3, [4]=V4
 static char txBuff[512];
 static char jsonBuff[256];
 static char statusStr[20];
+static int s_demo_mosfet_override = -1; // -1: Tu dong (theo cam bien), 0: Ep ngat, 1: Ep bat
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -281,25 +282,37 @@ int main(void)
     // 5. Bao ve thong minh bang SENTINEL EDGE AI:
     // Ngat ngay neu AI phat hien bat thuong (1=OVER-V, 2=UNDER-V, 3=OVER-I, 4=OVER-T)
     int ai_cls = UI_GetCurrentAIClass();
-    /* Edge AI is advisory: its false positives must not cut the load. Physical
-       voltage/current/temperature checks above remain the protection path. */
-    if (!bms_fault && (ai_cls == 1 || ai_cls == 3))
+    if (!bms_fault && (ai_cls >= 1 && ai_cls <= 4))
     {
         bms_fault = 1;
         const char *ai_names[] = {"NORMAL", "AI: OVER-V", "AI: UNDER-V", "AI: OVER-I", "AI: OVER-T"};
-        snprintf(fault_reason, sizeof(fault_reason), "%s", (ai_cls >= 1 && ai_cls <= 4) ? ai_names[ai_cls] : "AI FAULT");
+        snprintf(fault_reason, sizeof(fault_reason), "%s", ai_names[ai_cls]);
     }
 
-    // --- RA LENH CHO MOSFET PB0 ---
-    if (bms_fault)
+    // --- RA LENH CHO MOSFET PB0 (QUAT TAI) ---
+    if (s_demo_mosfet_override == 1)
     {
-        // Phat hien su co -> NGAT MOSFET NGAY LAP TUC (VE 0V)
+        // Che do Demo Web ep bat: BAT MOSFET PB0 (QUAT QUAY)
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_SET);
+    }
+    else if (s_demo_mosfet_override == 0)
+    {
+        // Che do Demo Web ep ngat: NGAT MOSFET PB0 (QUAT DUNG)
         HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_RESET);
     }
     else
     {
-        // Binh thuong an toan -> BAT MOSFET (CHO PHEP XA TAI)
-        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_SET);
+        // Che do tu dong (Theo cam bien that va bao ve BMS):
+        if (bms_fault)
+        {
+            // Phat hien su co -> NGAT MOSFET NGAY LAP TUC (VE 0V)
+            HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_RESET);
+        }
+        else
+        {
+            // Binh thuong an toan -> BAT MOSFET (CHO PHEP XA TAI)
+            HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_SET);
+        }
     }
     // ==========================================================
 
@@ -837,7 +850,23 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
                         UI_UpdateEdgeAI(ai_cls, ai_sc);
                     }
                 }
-                // 2. Kiem tra lenh cau hinh chon pin tu Database (Vi du: SET_PIN:3)
+                // 2. Kiem tra lenh dieu khien MOSFET tu Che do Demo Web (MOSFET:1, MOSFET:0, MOSFET:AUTO)
+                else if(strncmp(rxBuffer, "MOSFET:", 7) == 0)
+                {
+                    if(strncmp(&rxBuffer[7], "1", 1) == 0)
+                    {
+                        s_demo_mosfet_override = 1;  // Ep bat quat (MOSFET PB0 = 1)
+                    }
+                    else if(strncmp(&rxBuffer[7], "0", 1) == 0)
+                    {
+                        s_demo_mosfet_override = 0;  // Ep tat quat (MOSFET PB0 = 0)
+                    }
+                    else
+                    {
+                        s_demo_mosfet_override = -1; // Quay ve tu dong theo cam bien that
+                    }
+                }
+                // 3. Kiem tra lenh cau hinh chon pin tu Database (Vi du: SET_PIN:3)
                 else if(strncmp(rxBuffer, "SET_PIN:", 8) == 0)
                 {
                     int id = 0;

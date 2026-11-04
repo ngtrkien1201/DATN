@@ -52,35 +52,79 @@ enum AlarmLevel {
 
 AlarmLevel currentAlarm = ALARM_OFF;
 
-// Che do trinh dien duoc chon tu dashboard. Chi dieu khien LED/coi ESP32;
-// khong thay doi telemetry that va khong gui lenh dieu khien MOSFET STM32.
+// Che do trinh dien dong bo toan dien:
+// Dieu khien ca 3 LED va Coi ESP32, man hinh TFT LCD va MOSFET PB0 (Quat tai) STM32.
 enum DemoMode { DEMO_DISABLED, DEMO_NORMAL, DEMO_IMBALANCE, DEMO_FAULT };
 volatile DemoMode demoMode = DEMO_DISABLED;
 volatile AlarmLevel telemetryAlarm = ALARM_OFF;
+volatile int demoAiClass = 0;
 
 bool applyGatewayCommand(const String &command)
 {
-    if (!command.startsWith("DEMO_ALARM:")) return false;
-
-    String alarm = command.substring(11);
-    alarm.trim();
-    alarm.toUpperCase();
-    if (alarm == "SAFE") {
-        demoMode = DEMO_NORMAL;
-        currentAlarm = ALARM_SAFE;
-    } else if (alarm == "WARNING") {
-        demoMode = DEMO_IMBALANCE;
-        currentAlarm = ALARM_WARNING;
-    } else if (alarm == "FAULT") {
-        demoMode = DEMO_FAULT;
-        currentAlarm = ALARM_FAULT;
-    } else if (alarm == "OFF") {
-        demoMode = DEMO_DISABLED;
-        currentAlarm = telemetryAlarm;
+    String mode = "";
+    if (command.startsWith("DEMO:")) {
+        mode = command.substring(5);
+    } else if (command.startsWith("DEMO_ALARM:")) {
+        mode = command.substring(11);
     } else {
         return false;
     }
-    Serial.printf("[DEMO] Dashboard command: %s\n", alarm.c_str());
+
+    mode.trim();
+    mode.toUpperCase();
+
+    if (mode == "SAFE" || mode == "NORMAL") {
+        demoMode = DEMO_NORMAL;
+        currentAlarm = ALARM_SAFE;
+        demoAiClass = 0;
+        Serial1.println("MOSFET:1");       // Bat MOSFET PB0 (Quat quay)
+        Serial1.println("AI_RES:0,99.0");  // STM32 TFT hien thi NORMAL
+    } else if (mode == "WARN" || mode == "WARNING" || mode == "IMBALANCE") {
+        demoMode = DEMO_IMBALANCE;
+        currentAlarm = ALARM_WARNING;
+        demoAiClass = 5;
+        Serial1.println("MOSFET:1");       // Lech cell la canh bao -> Cho phep quat quay
+        Serial1.println("AI_RES:5,85.0");  // STM32 TFT hien thi IMBALAN
+    } else if (mode == "OV" || mode == "OVERVOLTAGE") {
+        demoMode = DEMO_FAULT;
+        currentAlarm = ALARM_FAULT;
+        demoAiClass = 1;
+        Serial1.println("MOSFET:0");       // Qua ap: Ngat MOSFET PB0 (Quat dung)
+        Serial1.println("AI_RES:1,99.5");  // STM32 TFT hien thi OVER-V
+    } else if (mode == "UV" || mode == "UNDERVOLTAGE") {
+        demoMode = DEMO_FAULT;
+        currentAlarm = ALARM_FAULT;
+        demoAiClass = 2;
+        Serial1.println("MOSFET:0");       // Sut ap: Ngat MOSFET PB0 (Quat dung)
+        Serial1.println("AI_RES:2,99.5");  // STM32 TFT hien thi UNDER-V
+    } else if (mode == "OC" || mode == "OVERCURRENT") {
+        demoMode = DEMO_FAULT;
+        currentAlarm = ALARM_FAULT;
+        demoAiClass = 3;
+        Serial1.println("MOSFET:0");       // Qua dong: Ngat MOSFET PB0 (Quat dung)
+        Serial1.println("AI_RES:3,99.5");  // STM32 TFT hien thi OVER-I
+    } else if (mode == "OT" || mode == "OVERHEAT" || mode == "OVERTEMPERATURE") {
+        demoMode = DEMO_FAULT;
+        currentAlarm = ALARM_FAULT;
+        demoAiClass = 4;
+        Serial1.println("MOSFET:0");       // Qua nhiet: Ngat MOSFET PB0 (Quat dung)
+        Serial1.println("AI_RES:4,99.5");  // STM32 TFT hien thi OVER-T
+    } else if (mode == "FAULT") {
+        demoMode = DEMO_FAULT;
+        currentAlarm = ALARM_FAULT;
+        demoAiClass = 1;
+        Serial1.println("MOSFET:0");
+        Serial1.println("AI_RES:1,99.5");
+    } else if (mode == "OFF") {
+        demoMode = DEMO_DISABLED;
+        currentAlarm = telemetryAlarm;
+        demoAiClass = 0;
+        Serial1.println("MOSFET:AUTO");    // Thoat demo: Tra lai tu dong cho cam bien STM32
+    } else {
+        return false;
+    }
+
+    Serial.printf("[DEMO SYNC] Da ap dung che do: %s (AI Class: %d)\n", mode.c_str(), demoAiClass);
     return true;
 }
 
@@ -463,8 +507,14 @@ void processBatteryTelemetry(String jsonString)
     // KICH HOAT NGAY LAP TUC DEN VA COI (KHONG CHO DOI GUI MANG HTTP)
     updateAlarmIndicators();
 
-    Serial1.printf("AI_RES:%d,%.1f\r\n", pack_ai_class, pack_ai_score);
-    Serial.printf("-> [UPLINK TO STM32] Phan hoi ket qua AI: AI_RES:%d,%.1f\n", pack_ai_class, pack_ai_score);
+    if (demoMode == DEMO_DISABLED) {
+        Serial1.printf("AI_RES:%d,%.1f\r\n", pack_ai_class, pack_ai_score);
+        Serial.printf("-> [UPLINK TO STM32] Phan hoi ket qua AI: AI_RES:%d,%.1f\n", pack_ai_class, pack_ai_score);
+    } else {
+        // Trong che do Demo: Lien tuc duy tri trang thai MOSFET va AI Class xuong STM32
+        Serial1.printf("AI_RES:%d,99.0\r\n", demoAiClass);
+        Serial1.printf("MOSFET:%s\r\n", (demoAiClass == 0 || demoAiClass == 5) ? "1" : "0");
+    }
 
     // ============================================================
     // BƯỚC 4: LƯU GÓI JSON CHO LUỒNG GỬI WEB NỀN (NON-BLOCKING)
