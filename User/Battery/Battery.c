@@ -54,19 +54,19 @@ extern uint16_t adc_buffer[5];
 #endif
 
 #ifndef NODE1_RATIO
-#define NODE1_RATIO   2.001f   // Node 1 (PA1) - Đưa Cell 1 về chuẩn 4.16V (VOM)
+#define NODE1_RATIO   1.821f   // Node 1 (PA1): 20k/20k -> Cell 1 chuẩn 3.53V (VOM)
 #endif
 
 #ifndef NODE2_RATIO
-#define NODE2_RATIO   6.124f   // Node 2 (PA2) - Tinh chinh chuan VOM: PA2=1.21V -> Node2=7.41V -> Cell2=3.88V
+#define NODE2_RATIO   5.515f   // Node 2 (PA2): 100k/20k -> PA2=1.21V, Node 2=7.41V -> Cell 2 chuẩn 3.88V (VOM)
 #endif
 
 #ifndef NODE3_RATIO
-#define NODE3_RATIO   6.126f   // Node 3 (PA3) - Giữ Cell 3 chuẩn 4.17V (VOM)
+#define NODE3_RATIO   5.633f   // Node 3 (PA3): 100k/20k -> Node 3=11.29V -> Cell 3 chuẩn 3.88V (VOM)
 #endif
 
 #ifndef NODE4_RATIO
-#define NODE4_RATIO   5.742f   // Node 4 (PA4) - Đưa Cell 4 về chuẩn 3.69V (VOM)
+#define NODE4_RATIO   5.615f   // Node 4 (PA4): 100k/20k -> Node 4=15.16V -> Cell 4 chuẩn 3.87V (VOM)
 #endif
 
 void Battery_Update(void)
@@ -185,7 +185,7 @@ void Battery_Update(void)
     {
         float c2 = v_node2 - v_node1;
         if (c2 < 0.0f) c2 = 0.0f;
-        if (c2 > 4.35f) c2 = 4.35f;
+        if (c2 > 4.50f) c2 = 4.50f;
         Battery.CellVoltage[1] = c2;
     }
     else
@@ -194,7 +194,7 @@ void Battery_Update(void)
         if (v_node2 > 2.0f)
         {
             float est_c2 = v_node2 / 2.0f;
-            if (est_c2 > 4.35f) est_c2 = 4.35f;
+            if (est_c2 > 4.50f) est_c2 = 4.50f;
             Battery.CellVoltage[1] = est_c2;
         }
         else
@@ -252,7 +252,7 @@ void Battery_Update(void)
                     {
                         Battery.CellVoltage[i] *= k_recon;
                         // Kẹp giới hạn an toàn vật lý tuyệt đối (tối đa 4.35V hoặc < 0V)
-                        if (Battery.CellVoltage[i] > 4.35f) Battery.CellVoltage[i] = 4.35f;
+                        if (Battery.CellVoltage[i] > 4.50f) Battery.CellVoltage[i] = 4.50f;
                         if (Battery.CellVoltage[i] < 0.0f)  Battery.CellVoltage[i] = 0.0f;
                     }
                 }
@@ -264,7 +264,7 @@ void Battery_Update(void)
     // Khóa trần an toàn vật lý tuyệt đối (tối đa 4.35V để đo được vùng Over-voltage, tối thiểu 0.0V)
     for (int i = 0; i < 4; i++)
     {
-        if (Battery.CellVoltage[i] > 4.35f) Battery.CellVoltage[i] = 4.35f;
+        if (Battery.CellVoltage[i] > 4.50f) Battery.CellVoltage[i] = 4.50f;
         if (Battery.CellVoltage[i] < 0.0f)  Battery.CellVoltage[i] = 0.0f;
     }
 
