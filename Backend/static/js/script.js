@@ -238,6 +238,72 @@ function updateAlerts(d, timeStr) {
 }
 
 // ============================================================
+// 3.1 ANOMALY HISTORY TABLE MANAGEMENT
+// ============================================================
+let lastRecordedAnomaly = null;
+
+function addAnomalyRow(tbody, record) {
+    const isWarning = record.level === 'Warning' || record.level === 'Cảnh báo';
+    const badgeClass = isWarning ? 'badge-orange' : 'badge-red';
+    const badgeText = isWarning ? 'Cảnh báo' : 'Nguy hiểm';
+    const iconName = isWarning ? 'alert-circle' : 'alert-triangle';
+    const textColorClass = isWarning ? 'text-orange' : 'text-red';
+    
+    const row = document.createElement('tr');
+    row.innerHTML = `
+        <td>${record.time}</td>
+        <td><span class="${textColorClass}"><i data-lucide="${iconName}"></i> ${record.faultName}</span></td>
+        <td><strong>${record.score}</strong></td>
+        <td>${record.voltage} V</td>
+        <td>${record.current} A</td>
+        <td>${record.temperature} °C</td>
+        <td><span class="status-badge ${badgeClass}">${badgeText}</span></td>
+    `;
+    tbody.insertBefore(row, tbody.firstChild);
+    if (tbody.children.length > 25) {
+        tbody.removeChild(tbody.lastChild);
+    }
+}
+
+async function loadInitialAIHistory() {
+    const tbody = document.getElementById('ai-history-body');
+    if (!tbody) return;
+    try {
+        const res = await fetch('/api/history');
+        if (!res.ok) return;
+        const data = await res.json();
+        const anomalies = data.filter(d => (d.ai_class && d.ai_class !== 0) || (d.fault_flags && d.fault_flags !== 'NORMAL'));
+        if (anomalies.length > 0) {
+            tbody.innerHTML = '';
+            // Lấy tối đa 15 sự cố gần nhất
+            anomalies.slice(0, 15).forEach(a => {
+                const isWarning = a.ai_class === 5 || (a.fault_flags && a.fault_flags.includes('CI') && !a.fault_flags.includes('OV') && !a.fault_flags.includes('UV') && !a.fault_flags.includes('OC') && !a.fault_flags.includes('OT'));
+                const rawClass = a.ai_class === 1 ? 'Over-voltage' : (a.ai_class === 2 ? 'Under-voltage' : (a.ai_class === 3 ? 'Over-current' : (a.ai_class === 4 ? 'Over-heat' : (a.ai_class === 5 ? 'Cell Imbalance' : a.fault_flags))));
+                const faultName = AI_CLASS_MAP_VN[rawClass] || rawClass;
+                let tStr = a.timestamp || '--:--:--';
+                if (tStr.includes('T')) {
+                    const parts = tStr.split('T');
+                    tStr = parts[1].slice(0, 8);
+                }
+                const score = isWarning ? '0.55' : '0.99';
+                addAnomalyRow(tbody, {
+                    time: tStr,
+                    faultName: faultName,
+                    score: score,
+                    voltage: typeof a.voltage === 'number' ? a.voltage.toFixed(2) : (a.voltage || 0),
+                    current: typeof a.current === 'number' ? a.current.toFixed(2) : (a.current || 0),
+                    temperature: typeof a.temperature === 'number' ? a.temperature.toFixed(1) : (a.temperature || 0),
+                    level: isWarning ? 'Warning' : 'Alert'
+                });
+            });
+            if (window.lucide) lucide.createIcons();
+        }
+    } catch(err) {
+        console.warn("Could not load initial AI history:", err);
+    }
+}
+
+// ============================================================
 // 4. DATA POLLING & UI UPDATE
 // ============================================================
 let isFetching = false;
@@ -262,7 +328,7 @@ function applyDemoScenario(data) {
     const aiNames = ['Normal Operation', 'Over-voltage', 'Under-voltage', 'Over-current', 'Over-heat', 'Cell Imbalance'];
     d.real = { ...d.real, voltage: +packVoltage.toFixed(2), current: scenario.current, power: +power.toFixed(2), temperature: scenario.temperature, soc: scenario.soc, status: 'Discharging' };
     d.cells = { ...d.cells, cv: scenario.cells, csoc: scenario.cells.map(() => scenario.soc), cai_class: scenario.cells.map((_, i) => scenario.ai === 5 ? (i === 2 ? 5 : 0) : scenario.ai) };
-    d.edge_ai = { ...d.edge_ai, status: 'Running (DEMO)', status_label: scenario.ai === 0 ? 'Normal' : 'Alert', anomaly_class: aiNames[scenario.ai], anomaly_score: scenario.ai === 0 ? 0.04 : 0.96, confidence: scenario.ai === 0 ? 96 : 96, inference_time: 1.2 };
+    d.edge_ai = { ...d.edge_ai, status: 'Running (DEMO)', status_label: scenario.ai === 0 ? 'Normal' : (scenario.ai === 5 ? 'Warning' : 'Alert'), anomaly_class: aiNames[scenario.ai], anomaly_score: scenario.ai === 0 ? 0.04 : (scenario.ai === 5 ? 0.55 : 0.96), confidence: scenario.ai === 0 ? 96 : 96, inference_time: 1.2 };
     d.twin = { ...d.twin, voltage: +(packVoltage - 0.08).toFixed(2), terminal_voltage: +(packVoltage - 0.08).toFixed(2), ocv: +(packVoltage + 0.12).toFixed(2), soc: Math.max(0, scenario.soc - 1.5), remaining_capacity: +(2.2 * scenario.soc / 100).toFixed(2) };
     d.errors = { ...d.errors, voltage: 0.5, voltage_mv: 80 };
     d.sync_metrics = { ...d.sync_metrics, status: 'Synchronized', latency_ms: 120 };
@@ -418,9 +484,9 @@ async function updateTwin() {
             
             // Dynamic color for score
             let colorVar = 'var(--emerald)';
-            if (aiScore >= 0.7) {
+            if (d.edge_ai.status_label === 'Alert' || aiScore >= 0.75) {
                 colorVar = 'var(--rose)';
-            } else if (aiScore >= 0.3) {
+            } else if (d.edge_ai.status_label === 'Warning' || aiScore >= 0.3) {
                 colorVar = 'var(--orange)';
             }
             
@@ -462,6 +528,29 @@ async function updateTwin() {
             
             if(document.getElementById('ai-time')) document.getElementById('ai-time').innerText = aiAvailable ? d.edge_ai.inference_time + ' ms' : '--';
             
+            // Cập nhật bảng Lịch sử phát hiện bất thường (Anomaly History) theo thời gian thực
+            if (d.edge_ai && (d.edge_ai.status_label === 'Warning' || d.edge_ai.status_label === 'Alert')) {
+                const tbody = document.getElementById('ai-history-body');
+                if (tbody) {
+                    const faultName = AI_CLASS_MAP_VN[rawAiClass] || rawAiClass;
+                    const nowSec = Math.floor(Date.now() / 1000);
+                    if (!lastRecordedAnomaly || lastRecordedAnomaly.class !== faultName || (nowSec - lastRecordedAnomaly.time > 10)) {
+                        const emptyEl = tbody.querySelector('.empty-state');
+                        if (emptyEl) tbody.innerHTML = '';
+                        addAnomalyRow(tbody, {
+                            time: timeStr,
+                            faultName: faultName,
+                            score: aiScore.toFixed(2),
+                            voltage: (d.real.voltage || 0).toFixed(2),
+                            current: (d.real.current || 0).toFixed(2),
+                            temperature: (d.real.temperature || 0).toFixed(1),
+                            level: d.edge_ai.status_label
+                        });
+                        lastRecordedAnomaly = { class: faultName, time: nowSec };
+                        if (window.lucide) lucide.createIcons();
+                    }
+                }
+            }
         }
         // ------------------ PAGE 5: VALIDATION ------------------
         if(d.validation) {
@@ -529,6 +618,7 @@ async function updateTwin() {
 // Khởi tạo icon Lucide 1 lần duy nhất khi tải trang
 document.addEventListener('DOMContentLoaded', () => {
     if (window.lucide) lucide.createIcons();
+    loadInitialAIHistory();
 });
 
 // Polling mỗi 1.5 giây

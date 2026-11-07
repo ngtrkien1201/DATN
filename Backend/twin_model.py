@@ -411,13 +411,21 @@ class BatteryTwin:
         
         class_name = AI_CLASS_MAP.get(ai_class_idx, f"Unknown Class {ai_class_idx}")
         
-        # Nếu Normal, Anomaly score thấp. Nếu Lỗi, Anomaly score cao
+        # Phân cấp mức độ nguy hiểm:
+        # - Bình thường (Class 0): Normal (Xanh lá)
+        # - Lệch cell (Class 5): Mức CẢNH BÁO (Warning / LED Vàng, MOSFET vẫn bật, score ~0.55)
+        # - Quá áp (1), Sụt áp (2), Quá dòng (3), Quá nhiệt (4): Mức NGUY HIỂM (Alert / LED Đỏ, ngắt MOSFET, score ~0.99)
         if ai_class_idx == 0:
             anomaly_score = round(1.0 - (ai_confidence / 100.0), 3)
             ai_status_str = "Normal"
+        elif ai_class_idx == 5:
+            # Lệch cell là CẢNH BÁO (Warning), giữ score trong dải 0.45 - 0.60
+            anomaly_score = round(0.40 + (ai_confidence / 100.0) * 0.15, 2)
+            ai_status_str = "Warning"
         else:
+            # Sự cố vật lý nghiêm trọng: Quá áp, Sụt áp, Quá dòng, Quá nhiệt -> NGUY HIỂM (Alert)
             anomaly_score = round(ai_confidence / 100.0, 3)
-            ai_status_str = "Warning" if anomaly_score < 0.8 else "Alert"
+            ai_status_str = "Alert"
             
         # Nếu chưa nhận được dữ liệu AI bao giờ, hoặc đã mất kết nối thì báo Waiting
         has_ai_data = (self.edge_ai_state.get('AI_Time', 0) > 0
