@@ -1,4 +1,4 @@
-﻿/* USER CODE BEGIN Header */
+/* USER CODE BEGIN Header */
 /**
   ******************************************************************************
   * @file           : main.c
@@ -351,7 +351,7 @@ int main(void)
         "Energy  : %.6f Wh\r\n"
         "Status  : %s\r\n"
         "SOC     : %d %%\r\n"
-        "Temp    : %.1f C\r\n"
+        "Temp    : %.1f C (PA0: %.3f V, ADC: %u)\r\n"
         "BMS MOS : %s [%s]\r\n"
         "=============================\r\n",
 
@@ -371,6 +371,8 @@ int main(void)
 				statusStr,
 				Battery.SOC,
 				Temp.Temperature,
+				Temp.Voltage,
+				adc_buffer[0],
 				bms_fault ? "OFF (CUT)" : "ON (OK)",
 				fault_reason);
 

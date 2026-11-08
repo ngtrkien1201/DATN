@@ -1,4 +1,4 @@
-﻿#include "ui_dashboard.h"
+#include "ui_dashboard.h"
 #include "st7789.h"
 #include "fonts.h"
 #include "Battery.h"
@@ -37,6 +37,7 @@ static uint8_t last_status  = 255;
 static uint8_t last_soc     = 255;
 static uint8_t last_soh     = 255;
 static float   last_cycles  = -999.0f;
+extern uint16_t adc_buffer[5];
 static float   last_energy  = -999.0f;
 
 static float   last_cell_v[4]   = {-999.0f, -999.0f, -999.0f, -999.0f};
@@ -132,7 +133,7 @@ void UI_InitDashboard(void)
     ST7789_WriteString(6, 5, "[READY]", Font_7x10, EV_GREEN, 0x0841);
     
     // Tiêu đề đồng hồ taplo xe điện
-    ST7789_WriteString(124, 5, "EV TWIN CLUSTER", Font_7x10, EV_WHITE, 0x0841);
+    ST7789_WriteString(124, 5, "BMS DIGITAL TWIN", Font_7x10, EV_WHITE, 0x0841);
     
     // Đèn giám sát AI
     ST7789_WriteString(244, 5, "AI:ON", Font_7x10, EV_GREEN, 0x0841);
@@ -141,7 +142,7 @@ void UI_InitDashboard(void)
     // 3.1 Cột trái: HỆ THỐNG TRUYỀN ĐỘNG (POWERTRAIN TELEMETRY)
     ST7789_DrawFilledRectangle(4, 24, 96, 107, EV_PANEL_BG);
     ST7789_DrawRectangle(4, 24, 99, 130, EV_PANEL_BORDER);
-    ST7789_WriteString(10, 28, "POWERTRAIN", Font_7x10, EV_GRAY, EV_PANEL_BG);
+    ST7789_WriteString(14, 28, "NGUON PIN", Font_7x10, EV_GRAY, EV_PANEL_BG);
     ST7789_WriteString(10, 68, "V:", Font_7x10, EV_GRAY, EV_PANEL_BG);
     ST7789_WriteString(10, 82, "I:", Font_7x10, EV_GRAY, EV_PANEL_BG);
     ST7789_WriteString(10, 96, "T:", Font_7x10, EV_GRAY, EV_PANEL_BG);
@@ -150,7 +151,7 @@ void UI_InitDashboard(void)
     // 3.2 Cột giữa: CỤM ĐỒNG HỒ NĂNG LƯỢNG TRUNG TÂM (BATTERY ENERGY CORE)
     ST7789_DrawFilledRectangle(104, 24, 112, 107, EV_PANEL_BG);
     ST7789_DrawRectangle(104, 24, 215, 130, EV_CYAN); // Viền Cyan nổi bật như taplo Tesla
-    ST7789_WriteString(118, 28, "BATTERY CORE", Font_7x10, EV_CYAN, EV_PANEL_BG);
+    ST7789_WriteString(118, 28, "MUC PIN SOC", Font_7x10, EV_CYAN, EV_PANEL_BG);
 
     // 3.3 Cột phải: THỂ SONG SINH SỐ (DIGITAL TWIN 1RC ECM)
     ST7789_DrawFilledRectangle(220, 24, 96, 107, EV_PANEL_BG);
@@ -164,7 +165,7 @@ void UI_InitDashboard(void)
     // 4. KHUNG BỘ PIN SKATEBOARD DƯỚI SÀN XE (4S CHASSIS PACK: Y = 134..195)
     ST7789_DrawFilledRectangle(4, 134, 312, 62, EV_PANEL_BG);
     ST7789_DrawRectangle(4, 134, 315, 195, EV_PANEL_BORDER);
-    ST7789_WriteString(10, 138, "4S SKATEBOARD PACK", Font_7x10, EV_GRAY, EV_PANEL_BG);
+    ST7789_WriteString(10, 138, "KHOI 4 CELL PIN", Font_7x10, EV_GRAY, EV_PANEL_BG);
 
     // Vẽ viền cho 4 Pod Cell xe điện
     for (int i = 0; i < 4; i++) {
@@ -236,10 +237,10 @@ void UI_UpdateDashboard(void)
         ST7789_WriteString(26, 82, buf, Font_7x10, i_col, EV_PANEL_BG);
     }
 
-    // Nhiệt độ khối pin
+    // Nhiệt độ khối pin (Chỉ hiển thị nhiệt độ)
     if (fabsf(Temp.Temperature - last_temp) >= 0.2f || force_redraw) {
         last_temp = Temp.Temperature;
-        sprintf(buf, "%4.1fC", Temp.Temperature);
+        sprintf(buf, "%4.1fC       ", Temp.Temperature);
         uint16_t t_col = (Temp.Temperature > 50.0f) ? EV_RED : ((Temp.Temperature > 40.0f) ? EV_ORANGE : EV_GREEN);
         ST7789_WriteString(26, 96, buf, Font_7x10, t_col, EV_PANEL_BG);
     }
@@ -271,11 +272,11 @@ void UI_UpdateDashboard(void)
 
         // Chế độ lái xe điện
         if (Battery.Status == BATTERY_CHARGING) {
-            ST7789_WriteString(128, 110, "[CHARGING]", Font_7x10, EV_GREEN, EV_PANEL_BG);
+            ST7789_WriteString(128, 110, "[DANG SAC ]", Font_7x10, EV_GREEN, EV_PANEL_BG);
         } else if (Battery.Status == BATTERY_DISCHARGING) {
-            ST7789_WriteString(128, 110, "[DRIVE ON]", Font_7x10, EV_ORANGE, EV_PANEL_BG);
+            ST7789_WriteString(128, 110, "[XA TAI   ]", Font_7x10, EV_ORANGE, EV_PANEL_BG);
         } else {
-            ST7789_WriteString(128, 110, "[PARKED  ]", Font_7x10, EV_GRAY, EV_PANEL_BG);
+            ST7789_WriteString(128, 110, "[DANG DO  ]", Font_7x10, EV_GRAY, EV_PANEL_BG);
         }
     }
 
@@ -331,7 +332,7 @@ void UI_UpdateDashboard(void)
         uint8_t scl_val = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_6);
         uint8_t sda_val = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_7);
 
-        ST7789_WriteString(226, 44, "INA ERR", Font_11x18, EV_RED, EV_PANEL_BG);
+        ST7789_WriteString(226, 44, "LOI INA ", Font_11x18, EV_RED, EV_PANEL_BG);
         sprintf(buf, "SCL:%s", scl_val ? "HIGH" : "LOW ");
         ST7789_WriteString(226, 68, buf, Font_7x10, scl_val ? EV_GREEN : EV_RED, EV_PANEL_BG);
         sprintf(buf, "SDA:%s", sda_val ? "HIGH" : "LOW ");
@@ -348,7 +349,7 @@ void UI_UpdateDashboard(void)
             dt_Vp         = 0.0f;
             dt_Vest       = 0.0f;
             dt_accuracy   = 0.0f;
-            ST7789_WriteString(226, 44, "NO BAT ", Font_11x18, EV_MUTED, EV_PANEL_BG);
+            ST7789_WriteString(226, 44, "CHUA PIN", Font_11x18, EV_MUTED, EV_PANEL_BG);
             ST7789_WriteString(258, 82, " -- % ", Font_7x10,  EV_MUTED, EV_PANEL_BG);
             ST7789_WriteString(258, 96, " -- % ", Font_7x10,  EV_MUTED, EV_PANEL_BG);
             ST7789_WriteString(258, 110, " ---mR", Font_7x10, EV_MUTED, EV_PANEL_BG);
@@ -371,10 +372,10 @@ void UI_UpdateDashboard(void)
         last_delta_v = delta_v;
         int d_mv = (int)(delta_v * 1000.0f);
         if (d_mv > 9999) d_mv = 9999;
-        const char *bal_status = (d_mv <= 150) ? "BAL " : ((d_mv <= 200) ? "WARN" : "IMB ");
-        sprintf(buf, "dV:%4dmV [%s]", d_mv, bal_status);
+        const char *bal_status = (d_mv <= 150) ? "CAN BANG " : ((d_mv <= 200) ? "CANH BAO " : "LECH CELL");
+        sprintf(buf, "dV:%3dmV [%s]", d_mv, bal_status);
         uint16_t dv_col = (d_mv <= 150) ? EV_GREEN : ((d_mv <= 200) ? EV_YELLOW : EV_RED);
-        ST7789_WriteString(188, 138, buf, Font_7x10, dv_col, EV_PANEL_BG);
+        ST7789_WriteString(165, 138, buf, Font_7x10, dv_col, EV_PANEL_BG);
     }
 
     // Cập nhật 4 Module Cell dạng Pod xe điện
@@ -409,33 +410,33 @@ void UI_UpdateDashboard(void)
 
     if (!battery_connected) {
         current_ai_class = -1;
-        ai_name = "NO BAT ";
+        ai_name = "CHUA PIN";
         ai_col = EV_MUTED;
     } else if (s_esp32_ai_class >= 0 && (HAL_GetTick() - s_last_ai_rx_tick < 6000)) {
         // Ưu tiên số 1: Đồng bộ kết quả trực tiếp từ ESP32-S3 Edge AI qua UART
         current_ai_class = s_esp32_ai_class;
         current_ai_conf = (s_esp32_ai_score > 0.0f) ? s_esp32_ai_score : 99.0f;
         switch (s_esp32_ai_class) {
-            case 0: ai_name = "NORMAL "; ai_col = EV_GREEN;  break;
-            case 1: ai_name = "OVER-V "; ai_col = EV_RED;    break;
-            case 2: ai_name = "UNDER-V"; ai_col = EV_RED;    break;
-            case 3: ai_name = "OVER-I "; ai_col = EV_RED;    break;
-            case 4: ai_name = "OVER-T "; ai_col = EV_RED;    break;
-            case 5: ai_name = "IMBALAN"; ai_col = EV_ORANGE; break;
-            default: ai_name = "UNKNOWN"; ai_col = EV_MUTED; break;
+            case 0: ai_name = "AN TOAN  "; ai_col = EV_GREEN;  break;
+            case 1: ai_name = "QUA AP   "; ai_col = EV_RED;    break;
+            case 2: ai_name = "SUT AP   "; ai_col = EV_RED;    break;
+            case 3: ai_name = "QUA DONG "; ai_col = EV_RED;    break;
+            case 4: ai_name = "QUA NHIET"; ai_col = EV_RED;    break;
+            case 5: ai_name = "LECH CELL"; ai_col = EV_ORANGE; break;
+            default: ai_name = "CHUA RO  "; ai_col = EV_MUTED; break;
         }
     } else {
         // Dự phòng (Fallback): Nếu chưa có hoặc mất kết nối UART từ ESP32
         if (max_cv > 4.20f) {
-            current_ai_class = 1; ai_name = "OVER-V "; ai_col = EV_RED;
+            current_ai_class = 1; ai_name = "QUA AP   "; ai_col = EV_RED;
         } else if (min_cv < 3.00f && Battery.Voltage > 1.0f) {
-            current_ai_class = 2; ai_name = "UNDER-V"; ai_col = EV_RED;
+            current_ai_class = 2; ai_name = "SUT AP   "; ai_col = EV_RED;
         } else if (fabsf(Battery.Current) > 2.0f) {
-            current_ai_class = 3; ai_name = "OVER-I "; ai_col = EV_RED;
+            current_ai_class = 3; ai_name = "QUA DONG "; ai_col = EV_RED;
         } else if (Temp.Temperature > 50.0f) {
-            current_ai_class = 4; ai_name = "OVER-T "; ai_col = EV_RED;
+            current_ai_class = 4; ai_name = "QUA NHIET"; ai_col = EV_RED;
         } else if (delta_v > 0.20f && Battery.SOC > 5 && Battery.Voltage > 1.0f) {
-            current_ai_class = 5; ai_name = "IMBALAN"; ai_col = EV_ORANGE;
+            current_ai_class = 5; ai_name = "LECH CELL"; ai_col = EV_ORANGE;
         }
     }
 
@@ -447,14 +448,14 @@ void UI_UpdateDashboard(void)
 
         // Cập nhật dòng CONF bên dưới theo trạng thái pin
         if (!battery_connected) {
-            ST7789_WriteString(10, 220, "CONF: -- | NO BAT     ", Font_7x10, EV_MUTED, EV_PANEL_BG);
+            ST7789_WriteString(10, 220, "CONF: -- | CHUA PIN   ", Font_7x10, EV_MUTED, EV_PANEL_BG);
         } else if (!ina_ok) {
-            ST7789_WriteString(10, 220, "CONF: 99.0% | INA ERR ", Font_7x10, EV_ORANGE, EV_PANEL_BG);
+            ST7789_WriteString(10, 220, "CONF: 99%| LOI INA    ", Font_7x10, EV_ORANGE, EV_PANEL_BG);
         } else if (current_ai_class == 0) {
-            sprintf(buf, "CONF: %4.1f%% | SAFE    ", current_ai_conf);
+            sprintf(buf, "CONF: %4.1f%% | AN TOAN ", current_ai_conf);
             ST7789_WriteString(10, 220, buf, Font_7x10, EV_GREEN, EV_PANEL_BG);
         } else {
-            sprintf(buf, "CONF: %4.1f%% | WARN    ", current_ai_conf);
+            sprintf(buf, "CONF: %4.1f%% | CANHBAO ", current_ai_conf);
             ST7789_WriteString(10, 220, buf, Font_7x10, EV_ORANGE, EV_PANEL_BG);
         }
     }

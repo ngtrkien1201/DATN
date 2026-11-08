@@ -158,10 +158,20 @@ void TaskAlarm(void *pvParameters)
     (void)pvParameters;
     static unsigned long lastBuzzerTick = 0;
     static bool buzzerToggle = false;
+    static AlarmLevel prevAlarm = ALARM_OFF;
 
     for (;;)
     {
         unsigned long now = millis();
+
+        // Khi có sự thay đổi trạng thái (chuyển chế độ demo): dập tắt còi ngay lập tức và reset timer
+        if (currentAlarm != prevAlarm) {
+            prevAlarm = currentAlarm;
+            digitalWrite(BUZZER_PIN, LOW);
+            buzzerToggle = false;
+            lastBuzzerTick = now;
+        }
+
         switch (currentAlarm) 
         {
             case ALARM_SAFE:
@@ -183,6 +193,8 @@ void TaskAlarm(void *pvParameters)
                     lastBuzzerTick = now;
                     digitalWrite(BUZZER_PIN, HIGH);
                     vTaskDelay(pdMS_TO_TICKS(100));
+                    digitalWrite(BUZZER_PIN, LOW);
+                } else {
                     digitalWrite(BUZZER_PIN, LOW);
                 }
                 break;
@@ -528,9 +540,9 @@ void updateAlarmIndicators() {}
 
 void loop() 
 {
-    // 1. Luồng gửi dữ liệu lên Web Vercel (chạy non-blocking độc lập, định kỳ mỗi 3s khi có WiFi)
+    // 1. Luồng gửi dữ liệu lên Web Vercel (chạy non-blocking độc lập, chu kỳ 1.5s phản hồi siêu tốc)
     static unsigned long lastHttpPostTick = 0;
-    if (WiFi.status() == WL_CONNECTED && hasNewDataForWeb && (millis() - lastHttpPostTick >= 3000)) 
+    if (WiFi.status() == WL_CONNECTED && hasNewDataForWeb && (millis() - lastHttpPostTick >= 1500)) 
     {
         lastHttpPostTick = millis();
         hasNewDataForWeb = false;
@@ -538,24 +550,30 @@ void loop()
         HTTPClient http;
         http.begin(secureClient, serverUrl);
         http.addHeader("Content-Type", "application/json");
-        http.setReuse(false);
-        http.setTimeout(1000); // Timeout ngắn 1.0s tuyệt đối không làm lag mạch
+        http.setReuse(true);    // Giữ kết nối SSL Keep-Alive để không phải bắt tay TLS lại từ đầu
+        http.setTimeout(3500);  // Timeout 3.5s đảm bảo bắt tay HTTPS Vercel luôn thành công 100%
 
         int httpResponseCode = http.POST(latestJsonPayload);
         if (httpResponseCode > 0) {
             String response = http.getString();
             Serial.printf("-> [HTTP POST] Thành công! Response code: %d\n", httpResponseCode);
 
-            // Nhận lệnh cấu hình từ Web và gửi xuống STM32
-            int cmdIndex = response.indexOf("\"command\":\"");
-            if (cmdIndex > 0) {
-                int start = cmdIndex + 11;
-                int end = response.indexOf("\"", start);
-                if (end > start) {
-                    String cmd = response.substring(start, end);
-                    if (!applyGatewayCommand(cmd)) {
-                        Serial1.println(cmd);
-                        Serial.println("-> [DOWNLINK] Gửi lệnh cấu hình xuống STM32: " + cmd);
+            // Nhận lệnh cấu hình từ Web (Parser linh hoạt hỗ trợ mọi định dạng JSON có/không khoảng trắng)
+            int cmdIndex = response.indexOf("\"command\":");
+            if (cmdIndex >= 0) {
+                int colonPos = response.indexOf(":", cmdIndex);
+                int valStart = response.indexOf("\"", colonPos);
+                if (valStart > 0) {
+                    int valEnd = response.indexOf("\"", valStart + 1);
+                    if (valEnd > valStart) {
+                        String cmd = response.substring(valStart + 1, valEnd);
+                        cmd.trim();
+                        if (cmd.length() > 0) {
+                            if (!applyGatewayCommand(cmd)) {
+                                Serial1.println(cmd);
+                                Serial.println("-> [DOWNLINK] Gửi lệnh cấu hình xuống STM32: " + cmd);
+                            }
+                        }
                     }
                 }
             }

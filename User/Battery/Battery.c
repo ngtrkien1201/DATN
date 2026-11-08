@@ -54,7 +54,7 @@ extern uint16_t adc_buffer[5];
 #endif
 
 #ifndef NODE1_RATIO
-#define NODE1_RATIO   1.821f   // Node 1 (PA1): 20k/20k -> Cell 1 chuẩn 3.53V (VOM)
+#define NODE1_RATIO   1.620f   // Node 1 (PA1): 20k/20k -> Cân chỉnh lại theo bo PCB thực tế (~3.84V)
 #endif
 
 #ifndef NODE2_RATIO
@@ -311,7 +311,7 @@ void Battery_Update(void)
 
     // Khởi tạo lại SOC chuẩn xác ngay chu kỳ đầu tiên có dữ liệu 4 Cell
     static uint8_t soc_calibrated_by_cells = 0;
-    if ((!soc_calibrated_by_cells || Battery.SOC == 0) && avg_cell_voltage > 3.0f) {
+    if (!soc_calibrated_by_cells && avg_cell_voltage > 3.0f) {
         SOC_Init(avg_cell_voltage);
         soc_calibrated_by_cells = 1;
     }

@@ -3,3 +3,5 @@
 
 30/10/2026: thêm phần mosfet làm mạch bảo vệ , còi và led làm trạng thái cảnh báo. hoàn thiện
 
+11/8/2026: thêm phần demo, hoàn thiện toàn bộ đồ án
+
