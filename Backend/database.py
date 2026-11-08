@@ -167,9 +167,13 @@ def load_twin_state():
     return _in_memory_twin_state if _in_memory_twin_state else None
 
 def save_pending_command(command_str):
+    global _in_memory_pending_commands
+    _in_memory_pending_commands.clear()
     _in_memory_pending_commands.append(command_str)
     if ensure_mongo_connection() and db is not None:
         try:
+            # Xóa các lệnh cũ để lệnh mới nhất được thực thi ngay lập tức, không bị trễ hàng đợi
+            db['pending_commands'].delete_many({})
             db['pending_commands'].insert_one({
                 "command": command_str,
                 "timestamp": datetime.now(timezone.utc)
@@ -178,17 +182,18 @@ def save_pending_command(command_str):
             logging.warning("MongoDB save_pending_command error: %s", e)
 
 def pop_pending_command():
+    global _in_memory_pending_commands
     if ensure_mongo_connection() and db is not None:
         try:
-            doc = db['pending_commands'].find_one_and_delete(
-                {}, 
-                sort=[("timestamp", 1)]
-            )
+            doc = db['pending_commands'].find_one(sort=[("timestamp", -1)])
             if doc:
+                db['pending_commands'].delete_many({})
                 return doc.get("command")
         except Exception as e:
             logging.warning("MongoDB pop_pending_command error: %s", e)
 
     if _in_memory_pending_commands:
-        return _in_memory_pending_commands.pop(0)
+        cmd = _in_memory_pending_commands[-1]
+        _in_memory_pending_commands.clear()
+        return cmd
     return None
