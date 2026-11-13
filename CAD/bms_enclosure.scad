@@ -66,7 +66,7 @@ fan_w = 40.0;
 fan_h = 40.0;
 fan_t = 20.0;
 fan_screw_pitch = 32.0; // Khoảng cách tâm 4 lỗ vít quạt 4cm
-fan_screw_d = 2.2;      // Đường kính lỗ ốc M2 (đồng bộ toàn bộ ốc M2 cho quạt và màn hình)
+fan_screw_d = 3.2;      // Đường kính lỗ ốc M3 (chuẩn zin theo quạt 40x40, tương thích cả M2.5 và M3)
 
 // Thông số Màn hình TFT 2.8" (Khung kính 6.9 cm x 5.0 cm)
 tft_active_w = 69.2;    // Chiều rộng X (6.9 cm + 0.2mm dung sai)
@@ -209,15 +209,15 @@ module model_fan() {
         rotate([0, 90, 0]) cylinder(r=8, h=fan_t*0.9, center=true);
     }
 
-    // 4 Ốc kim loại M2 bắt cố định quạt vào thành vỏ hộp
+    // 4 Ốc kim loại M3 bắt cố định quạt vào thành vỏ hộp (tương thích M2.5 / M3)
     color(COLOR_SILVER) {
         for (dy = [-fan_screw_pitch/2, fan_screw_pitch/2]) {
             for (dz = [-fan_screw_pitch/2, fan_screw_pitch/2]) {
                 translate([fan_t/2 + wall/2, dy, dz]) rotate([0, 90, 0]) {
-                    cylinder(r=1.0, h=fan_t + wall + 2, center=true);
-                    // Đầu ốc chìm M2 phẳng lì mặt ngoài vỏ hộp
+                    cylinder(r=1.5, h=fan_t + wall + 2, center=true);
+                    // Đầu ốc chìm M3 phẳng lì mặt ngoài vỏ hộp
                     translate([0, 0, (fan_t + wall)/2])
-                        cylinder(r=2.0, h=0.8, center=true);
+                        cylinder(r=3.0, h=1.0, center=true);
                 }
             }
         }
@@ -273,17 +273,17 @@ module bottom_shell() {
                 rotate([0, 90, 0])
                     cylinder(r=19.0, h=wall * 3, center=true);
 
-            // 3. 4 Lỗ bắt ốc M2 (Ø2.2mm) chuẩn cự ly 32 x 32mm + Lỗ loe âm đầu ốc Ø4.4mm ở mặt ngoài
+            // 3. 4 Lỗ bắt ốc M3 chuyên dụng (Ø3.4mm) chuẩn cự ly 32 x 32mm + Lỗ loe âm đầu ốc Ø6.4mm
             for (dy = [-fan_screw_pitch/2, fan_screw_pitch/2]) {
                 for (dz = [-fan_screw_pitch/2, fan_screw_pitch/2]) {
-                    // Lỗ xỏ ốc M2 qua thành (đường kính Ø2.2mm)
+                    // Lỗ xỏ ốc M3 qua thành (đường kính Ø3.4mm vừa khít êm)
                     translate([outer_w - wall/2, fan_pos_y + dy, fan_pos_z + dz])
                         rotate([0, 90, 0])
-                            cylinder(r=1.1, h=wall * 3, center=true);
-                    // Lỗ khoét âm cho đầu ốc M2 nằm phẳng lì mặt ngoài vỏ hộp (Flush Countersink Ø4.4mm)
-                    translate([outer_w - 0.4, fan_pos_y + dy, fan_pos_z + dz])
+                            cylinder(r=1.7, h=wall * 3, center=true);
+                    // Lỗ khoét âm cho đầu ốc M3 nằm phẳng lì mặt ngoài vỏ hộp (Flush Countersink Ø6.4mm)
+                    translate([outer_w - 0.5, fan_pos_y + dy, fan_pos_z + dz])
                         rotate([0, 90, 0])
-                            cylinder(r=2.2, h=1.0, center=true);
+                            cylinder(r=3.2, h=1.2, center=true);
                 }
             }
 
@@ -498,9 +498,9 @@ module top_shell() {
         }
     }
 
-    // 4 Cụm trụ ốc âm M2 bắt bo màn hình TFT 2.8" dưới tấm nắp phẳng
-    // Thiết kế dạng trụ bầu dục đa năng: có lỗ mồi Ø1.7mm chuẩn cự ly 78 x 43mm
-    // và lỗ mở rộng để vừa khít 100% mọi biến thể bo đỏ TFT 2.8" trên thị trường!
+    // 4 Cụm trụ ốc âm M3 chuyên dụng bắt bo màn hình TFT 2.8" dưới tấm nắp phẳng
+    // Thiết kế dạng trụ bầu dục gia cường: dày Ø7.2mm x 10.0mm, rãnh mồi Ø2.5mm chuẩn cho ren M3
+    // Ren M3 tự ta-rô bám cực kỳ cứng cáp và chắc nịch, không sợ nứt nhựa!
     tft_center_x = 75;
     tft_center_y = outer_l / 2 + 10;
     for (dir_x = [-1, 1]) {
@@ -510,15 +510,17 @@ module top_shell() {
             translate([bx, by, -4.0]) {
                 color(COLOR_TOP) {
                     difference() {
-                        // Trụ nhựa hình bầu dục chắc chắn Ø6.0mm x 9.0mm
+                        // Trụ nhựa hình bầu dục gia cường chắc nịch Ø7.2mm x 10.0mm
                         hull() {
-                            translate([0, -1.5, 0]) cylinder(r=3.0, h=4.0);
-                            translate([0,  1.5, 0]) cylinder(r=3.0, h=4.0);
+                            translate([0, -1.5, 0]) cylinder(r=3.6, h=4.0);
+                            translate([0,  1.5, 0]) cylinder(r=3.6, h=4.0);
                         }
-                        // Lỗ mồi chính cho ốc M2 (cự ly chuẩn tâm bo đỏ 43mm)
-                        cylinder(r=0.85, h=5.0);
-                        // Lỗ mồi phụ (cự ly 48mm) đảm bảo vặn ốc M2 êm ru
-                        translate([0, dir_y * 2.5, 0]) cylinder(r=0.85, h=5.0);
+                        // Rãnh mồi ốc M3 liền khối Ø2.5mm (vừa khít cự ly 43mm đến 48mm, không lo lệch lỗ)
+                        translate([0, 0, -0.5])
+                            hull() {
+                                cylinder(r=1.25, h=5.0);
+                                translate([0, dir_y * 2.5, 0]) cylinder(r=1.25, h=5.0);
+                            }
                     }
                 }
             }

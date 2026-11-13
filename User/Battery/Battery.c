@@ -54,19 +54,19 @@ extern uint16_t adc_buffer[5];
 #endif
 
 #ifndef NODE1_RATIO
-#define NODE1_RATIO   1.620f   // Node 1 (PA1): 20k/20k -> Cân chỉnh lại theo bo PCB thực tế (~3.84V)
+#define NODE1_RATIO   1.844f   // Node 1 (PA1): 20k/20k -> Node 1=4.04V -> Cell 1 chuẩn 4.04V (VOM)
 #endif
 
 #ifndef NODE2_RATIO
-#define NODE2_RATIO   5.515f   // Node 2 (PA2): 100k/20k -> PA2=1.21V, Node 2=7.41V -> Cell 2 chuẩn 3.88V (VOM)
+#define NODE2_RATIO   5.445f   // Node 2 (PA2): 100k/20k -> Node 2=7.81V -> Cell 2 chuẩn 3.77V (VOM)
 #endif
 
 #ifndef NODE3_RATIO
-#define NODE3_RATIO   5.633f   // Node 3 (PA3): 100k/20k -> Node 3=11.29V -> Cell 3 chuẩn 3.88V (VOM)
+#define NODE3_RATIO   5.526f   // Node 3 (PA3): 100k/20k -> Node 3=11.87V -> Cell 3 chuẩn 4.06V (VOM)
 #endif
 
 #ifndef NODE4_RATIO
-#define NODE4_RATIO   5.615f   // Node 4 (PA4): 100k/20k -> Node 4=15.16V -> Cell 4 chuẩn 3.87V (VOM)
+#define NODE4_RATIO   4.820f   // Hiệu chuẩn theo VOM: Node 4 = 15.47V khi firmware đọc 15.87V
 #endif
 
 void Battery_Update(void)

@@ -30,7 +30,8 @@ const char* ssid     = "LinhTrung_3";   // Thay tên WiFi của bạn vào đây
 const char* password = "23012024";      // Thay mật khẩu WiFi vào đây
 
 // ================= CẤU HÌNH SERVER VERCEL =================
-const char* serverUrl = "https://datn-mauve.vercel.app/api/telemetry";
+const char* serverUrl      = "https://datn-mauve.vercel.app/api/telemetry";
+const char* commandPollUrl = "https://datn-mauve.vercel.app/api/command/next";
 
 // ================= CẤU HÌNH UART (KẾT NỐI STM32) =================
 #define RX_PIN 16
@@ -538,9 +539,45 @@ void processBatteryTelemetry(String jsonString)
 // Hàm tương thích (Hệ thống cảnh báo đã chuyển sang TaskAlarm FreeRTOS độc lập)
 void updateAlarmIndicators() {}
 
+static void handleCommandResponse(const String &response)
+{
+    int cmdIndex = response.indexOf("\"command\":");
+    if (cmdIndex < 0) return;
+
+    int colonPos = response.indexOf(':', cmdIndex);
+    int valStart = response.indexOf('"', colonPos);
+    if (valStart < 0) return;
+    int valEnd = response.indexOf('"', valStart + 1);
+    if (valEnd <= valStart + 1) return;
+
+    String cmd = response.substring(valStart + 1, valEnd);
+    cmd.trim();
+    if (cmd.length() == 0) return;
+
+    if (!applyGatewayCommand(cmd)) {
+        Serial1.println(cmd);
+        Serial.println("-> [DOWNLINK] Sent command to STM32: " + cmd);
+    }
+}
+
 void loop() 
 {
-    // 1. Luồng gửi dữ liệu lên Web Vercel (chạy non-blocking độc lập, chu kỳ 1.5s phản hồi siêu tốc)
+    // 1. Luồng kiểm tra lệnh độc lập định kỳ (dự phòng khi chưa cắm pin / chưa có telemetry)
+    // Tần suất 3 giây giúp đảm bảo độ nhạy mà không làm cạn kiệt Quota Vercel (100k requests/tháng)
+    static unsigned long lastCommandPollTick = 0;
+    if (WiFi.status() == WL_CONNECTED && (millis() - lastCommandPollTick >= 3000)) {
+        lastCommandPollTick = millis();
+        HTTPClient commandHttp;
+        commandHttp.begin(secureClient, commandPollUrl);
+        commandHttp.setTimeout(2500); // 2.5s đảm bảo bắt tay TLS hoàn tất an toàn
+        int commandResponseCode = commandHttp.GET();
+        if (commandResponseCode == HTTP_CODE_OK) {
+            handleCommandResponse(commandHttp.getString());
+        }
+        commandHttp.end();
+    }
+
+    // 2. Luồng gửi dữ liệu lên Web Vercel (chạy non-blocking độc lập, chu kỳ 1.5s phản hồi siêu tốc)
     static unsigned long lastHttpPostTick = 0;
     if (WiFi.status() == WL_CONNECTED && hasNewDataForWeb && (millis() - lastHttpPostTick >= 1500)) 
     {
@@ -551,32 +588,15 @@ void loop()
         http.begin(secureClient, serverUrl);
         http.addHeader("Content-Type", "application/json");
         http.setReuse(true);    // Giữ kết nối SSL Keep-Alive để không phải bắt tay TLS lại từ đầu
-        http.setTimeout(3500);  // Timeout 3.5s đảm bảo bắt tay HTTPS Vercel luôn thành công 100%
+        http.setTimeout(2500);  // Timeout 2.5s đảm bảo bắt tay HTTPS Vercel luôn thành công 100%
 
         int httpResponseCode = http.POST(latestJsonPayload);
         if (httpResponseCode > 0) {
             String response = http.getString();
             Serial.printf("-> [HTTP POST] Thành công! Response code: %d\n", httpResponseCode);
 
-            // Nhận lệnh cấu hình từ Web (Parser linh hoạt hỗ trợ mọi định dạng JSON có/không khoảng trắng)
-            int cmdIndex = response.indexOf("\"command\":");
-            if (cmdIndex >= 0) {
-                int colonPos = response.indexOf(":", cmdIndex);
-                int valStart = response.indexOf("\"", colonPos);
-                if (valStart > 0) {
-                    int valEnd = response.indexOf("\"", valStart + 1);
-                    if (valEnd > valStart) {
-                        String cmd = response.substring(valStart + 1, valEnd);
-                        cmd.trim();
-                        if (cmd.length() > 0) {
-                            if (!applyGatewayCommand(cmd)) {
-                                Serial1.println(cmd);
-                                Serial.println("-> [DOWNLINK] Gửi lệnh cấu hình xuống STM32: " + cmd);
-                            }
-                        }
-                    }
-                }
-            }
+            // Nhận lệnh cấu hình đi kèm ngay trong phản hồi Telemetry (0 delay, tiết kiệm request)
+            handleCommandResponse(response);
         } else {
             Serial.printf("-> [HTTP POST LỖI] Mã lỗi: %d\n", httpResponseCode);
         }

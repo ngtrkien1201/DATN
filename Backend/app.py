@@ -104,7 +104,7 @@ def receive_telemetry():
             fault_flags=fault_flags
         )
         
-        # Kiểm tra xem có lệnh chờ nào không để gửi về cho ESP32
+        # Kiểm tra xem có lệnh chờ nào không để gửi về cho ESP32 (0 delay, tiết kiệm request)
         pending_cmd = pop_pending_command()
         response = {"message": "Data received successfully"}
         if pending_cmd:
@@ -326,6 +326,11 @@ def send_cmd():
                 pass
 
     return jsonify({"status": "success", "command": cmd}), 200
+
+@app.route('/api/command/next', methods=['GET'])
+def receive_next_command():
+    """Short-poll endpoint for the gateway to fetch queued device commands."""
+    return jsonify({"command": pop_pending_command()}), 200
 
 @app.route('/api/simulate', methods=['POST'])
 def simulate_scenario():

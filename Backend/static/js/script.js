@@ -363,14 +363,26 @@ async function selectDemoScenario(mode) {
             signal: demoCommandAbortController.signal
         });
         if (response.ok) {
-            if (status && scenario) status.textContent = `Đang trình diễn: ${scenario.label}. Lệnh phần cứng đã đồng bộ!`;
+            if (status) {
+                if (scenario) {
+                    status.textContent = `Đang trình diễn: ${scenario.label}. Lệnh phần cứng đã đồng bộ!`;
+                } else {
+                    status.textContent = 'Đã thoát chế độ demo. Đang hiển thị dữ liệu thực.';
+                }
+            }
         } else {
             throw new Error(`HTTP ${response.status}`);
         }
     } catch (error) {
         if (error.name !== 'AbortError') {
             console.warn('Demo command error:', error);
-            if (status && scenario) status.textContent = `Đang trình diễn: ${scenario.label} (chế độ mô phỏng Web).`;
+            if (status) {
+                if (scenario) {
+                    status.textContent = `Đang trình diễn: ${scenario.label} (chế độ mô phỏng Web).`;
+                } else {
+                    status.textContent = 'Đã chuyển về dữ liệu thực (chế độ mô phỏng Web).';
+                }
+            }
         }
     }
     updateTwin();

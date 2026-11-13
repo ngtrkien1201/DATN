@@ -188,6 +188,7 @@ def pop_pending_command():
             doc = db['pending_commands'].find_one(sort=[("timestamp", -1)])
             if doc:
                 db['pending_commands'].delete_many({})
+                _in_memory_pending_commands.clear()
                 return doc.get("command")
         except Exception as e:
             logging.warning("MongoDB pop_pending_command error: %s", e)

@@ -41,6 +41,7 @@ extern uint16_t adc_buffer[5];
 static float   last_energy  = -999.0f;
 
 static float   last_cell_v[4]   = {-999.0f, -999.0f, -999.0f, -999.0f};
+static float   last_node_v[4]   = {-999.0f, -999.0f, -999.0f, -999.0f};
 static uint8_t last_cell_soc[4] = {255, 255, 255, 255};
 static float   last_delta_v     = -999.0f;
 
@@ -119,6 +120,7 @@ void UI_InitDashboard(void)
     last_dt_acc   = -999.0f;
     for (int i = 0; i < 4; i++) {
         last_cell_v[i] = -999.0f;
+        last_node_v[i] = -999.0f;
         last_cell_soc[i] = 255;
     }
 
@@ -387,6 +389,13 @@ void UI_UpdateDashboard(void)
             sprintf(buf, "C%d:%4.2fV ", i + 1, Battery.CellVoltage[i]);
             uint16_t c_col = (Battery.CellVoltage[i] >= 3.00f && Battery.CellVoltage[i] <= 4.20f) ? EV_WHITE : EV_RED;
             ST7789_WriteString(cx + 4, 153, buf, Font_7x10, c_col, EV_PANEL_BG);
+        }
+
+        // Diagnostic cumulative tap voltage, shown below each derived cell voltage.
+        if (fabsf(Battery.NodeVoltage[i] - last_node_v[i]) >= 0.01f || force_redraw) {
+            last_node_v[i] = Battery.NodeVoltage[i];
+            sprintf(buf, "N%d:%5.2fV", i + 1, Battery.NodeVoltage[i]);
+            ST7789_WriteString(cx + 4, 187, buf, Font_7x10, EV_CYAN, EV_PANEL_BG);
         }
 
         uint8_t c_soc = Battery.CellSOC[i];
