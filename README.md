@@ -5,3 +5,8 @@
 
 11/8/2026: thêm phần demo, hoàn thiện toàn bộ đồ án
 
+13/11/2026: báo cáo đồ án 
+
+* làm rõ ung dụng của digital twin trong đồ án
+* Digital twin ứng dụng trong nhân bản,....
+

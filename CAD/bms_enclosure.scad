@@ -39,11 +39,12 @@ $fn = 40;
 // ------------------------------------------------------------------------------
 // 2. THÔNG SỐ HÌNH HỌC (PARAMETRIC DIMENSIONS)
 // ------------------------------------------------------------------------------
-// Kích thước bo mạch PCB
-pcb_w = 185.2;       // Chiều rộng PCB (trục X)
-pcb_l = 175.0;       // Chiều dài PCB (trục Y)
+// Kích thước bo mạch PCB thực tế từ người dùng
+pcb_w = 207.0;       // Chiều rộng PCB thực tế: 20.7 cm (207.0 mm)
+pcb_l = 175.0;       // Chiều dài PCB thực tế: 17.5 cm (175.0 mm)
 pcb_t = 1.6;         // Độ dày phíp PCB FR4 (trục Z)
-pcb_standoff_h = 6.0;// Chiều cao trụ đỡ PCB cách đáy hộp
+enable_standoffs = false; // Bỏ bệ đỡ: Đáy hộp phẳng lì 100%, tự do đặt bo mạch
+pcb_standoff_h = enable_standoffs ? 6.0 : 0.0; // Chiều cao trụ đỡ PCB cách đáy hộp
 
 // Kích thước thành vỏ & Khoảng hở dung sai
 wall = 2.5;                // Độ dày thành vỏ (khuyến nghị cho in 3D PETG/ABS)
@@ -53,9 +54,9 @@ clearance_x_right = 24.0;  // Khoảng hở mép phải (cho quạt 20mm + 4mm h
 clearance_y = 12.0;        // Khoảng hở trước/sau bo mạch
 
 // Kích thước phủ bì vỏ hộp (External dimensions)
-outer_w = pcb_w + clearance_x_left + clearance_x_right + 2 * wall; // = 222.2 mm (~22.2 cm)
+outer_w = pcb_w + clearance_x_left + clearance_x_right + 2 * wall; // = 244.0 mm (~24.4 cm)
 outer_l = pcb_l + 2 * (clearance_y + wall);                         // = 204.0 mm (~20.4 cm)
-outer_h = 52.0;                                                     // Tổng chiều cao hộp hoàn thiện (5.2 cm - mỏng gọn, thanh thoát)
+outer_h = 52.0;                                                     // Tổng chiều cao hộp hoàn thiện (5.2 cm)
 
 lid_t = 3.0;                                // Độ dày tấm NẮP PHẲNG (Flat Cover Plate)
 bottom_h = outer_h - lid_t;                 // Chiều cao thân dưới = 49.0 mm (chứa quạt 40mm sát đáy)
@@ -68,18 +69,18 @@ fan_t = 20.0;
 fan_screw_pitch = 32.0; // Khoảng cách tâm 4 lỗ vít quạt 4cm
 fan_screw_d = 3.2;      // Đường kính lỗ ốc M3 (chuẩn zin theo quạt 40x40, tương thích cả M2.5 và M3)
 
-// Thông số Màn hình TFT 2.8" (Khung kính 6.9 cm x 5.0 cm)
-tft_active_w = 69.2;    // Chiều rộng X (6.9 cm + 0.2mm dung sai)
-tft_active_h = 50.2;    // Chiều dài Y (5.0 cm + 0.2mm dung sai)
+// Thông số Màn hình TFT 2.8" (Khung kính 7.0 cm x 5.1 cm - đã nới thêm 1mm theo yêu cầu)
+tft_active_w = 71.0;    // Chiều dài X: 71.0mm (đã nới rộng thêm >1mm để thả kính vào êm ru)
+tft_active_h = 51.5;    // Chiều rộng Y: 51.5mm (đã nới rộng thêm để thả kính vào êm ru)
 tft_pcb_w = 86.0;       // Kích thước cả bo màn hình
 tft_pcb_h = 50.0;
 tft_pcb_t = 3.5;
 tft_screw_pitch_x = 78.0; // Cự ly tâm ốc X chuẩn bo đỏ (78.0mm)
 tft_screw_pitch_y = 43.0; // Cự ly tâm ốc Y chuẩn bo đỏ (43.0mm)
 
-// Thông số Công tắc nguồn bập bênh (1.8 cm x 1.2 cm = 18 x 12 mm)
-switch_cut_w = 18.2;    // Dài (18.0mm + dung sai in 0.2mm)
-switch_cut_h = 12.2;    // Rộng (12.0mm + dung sai in 0.2mm)
+// Thông số Công tắc nguồn bập bênh (Chiều rộng 2.0 cm = 20mm theo yêu cầu)
+switch_cut_w = 20.2;    // Chiều rộng công tắc: 20.0mm + 0.2mm dung sai = 20.2mm (chuẩn 2.0cm)
+switch_cut_h = 13.0;    // Chiều dài công tắc: 12.5 - 13.0mm (chuẩn snap-in bập bênh)
 
 // Thông số 3 LED cảnh báo
 led_hole_d = 5.2;       // Lỗ cho LED 5mm
@@ -262,7 +263,7 @@ module bottom_shell() {
             // CẮT KHOÉT NGOẠI VI: CỬA SỔ QUẠT CẠNH PHẢI (CHUẨN BẮT 4 ỐC M3 SÍT THÀNH HỘP)
             // -------------------------------------------------------------
             fan_pos_y = outer_l * 0.42;           // ~85.7mm (thẳng hàng con MOSFET TO-220)
-            fan_pos_z = pcb_standoff_h + fan_h/2; // = 6.0 + 20.0 = 26.0mm (sát mặt bo)
+            fan_pos_z = 26.0;                     // Tâm quạt 40x40mm ở Z = 26mm (cách sàn đáy 6mm, cách mép trên 3mm)
             
             // 1. Khung viền chỉ vuông 40.4 x 40.4mm âm 0.6mm ở mặt ngoài (tạo thẩm mỹ viền vuông)
             translate([outer_w - 0.3, fan_pos_y, fan_pos_z])
@@ -302,119 +303,52 @@ module bottom_shell() {
     // Giúp thả quạt vào là tự động khớp 100% 4 lỗ ốc, ôm khít sít rịt!
     // -----------------------------------------------------------------
     fan_pos_y = outer_l * 0.42;
-    fan_pos_z = pcb_standoff_h + fan_h/2;
+    fan_pos_z = 26.0;
     
-    // 1. Bệ đỡ đáy quạt (ở độ cao Z = 6.0mm, dày 2mm)
-    translate([outer_w - wall - fan_t/2, fan_pos_y, pcb_standoff_h - 1.0]) {
+    // 1. Bệ đỡ đáy quạt (ở độ cao Z = 6.0mm, dày 2mm, chỉ nằm ở mép phải sát quạt)
+    translate([outer_w - wall - fan_t/2, fan_pos_y, 5.0]) {
         color(COLOR_BOTTOM)
             cube([fan_t + 1.0, fan_w + 3.0, 2.0], center=true);
     }
     
     // 2. Hai gờ định vị ôm 2 bên sườn quạt (rộng 40.4mm, cao 12mm)
     for (dy = [-fan_w/2 - 1.0, fan_w/2 + 1.0]) {
-        translate([outer_w - wall - fan_t/2, fan_pos_y + dy, pcb_standoff_h + 6.0]) {
+        translate([outer_w - wall - fan_t/2, fan_pos_y + dy, 12.0]) {
             color(COLOR_BOTTOM)
                 cube([fan_t, 2.0, 12.0], center=true);
         }
     }
 
     // -----------------------------------------------------------------
-    // HỆ THỐNG GÁ GIỮ PCB CHUYÊN DỤNG CHO BO MẠCH KHÔNG KHOAN LỖ ỐC
-    // Gồm 4 Ke chữ L ôm khít 4 góc + Mấu gài Snap-fit + Gờ chống võng
+    // ĐÁY HỘP PHẲNG HOÀN TOÀN (BỎ HẲN BỆ ĐỠ THEO YÊU CẦU NGƯỜI DÙNG)
+    // Toàn bộ lòng đáy hộp hoàn toàn phẳng lì 100%, không có trụ, không có khấc.
+    // Người dùng thả bo mạch tự do, có thể lót mút xốp đệm chống sốc cách điện tùy ý.
     // -----------------------------------------------------------------
-    pcb_origin_x = wall + clearance_x_left;
-    pcb_origin_y = wall + clearance_y;
+    if (enable_standoffs) {
+        pcb_origin_x = wall + clearance_x_left;
+        pcb_origin_y = wall + clearance_y;
 
-    // 1. 4 Ke góc chữ L ôm khít 4 góc phíp PCB (dung sai 0.35mm, tự động khóa tâm)
-    pcb_corner_l_bracket(pcb_origin_x,             pcb_origin_y,              1,  1); // Trước - Trái
-    pcb_corner_l_bracket(pcb_origin_x + pcb_w,     pcb_origin_y,             -1,  1); // Trước - Phải
-    pcb_corner_l_bracket(pcb_origin_x,             pcb_origin_y + pcb_l,      1, -1); // Sau - Trái
-    pcb_corner_l_bracket(pcb_origin_x + pcb_w,     pcb_origin_y + pcb_l,     -1, -1); // Sau - Phải
+        // 1. 4 Bệ đỡ phẳng tròn ở 4 góc bo mạch (bán kính R=7.0mm, cao đúng 6.0mm)
+        translate([pcb_origin_x + 12, pcb_origin_y + 12, wall])
+            color(COLOR_BOTTOM) cylinder(r=7.0, h=6.0);
+        translate([pcb_origin_x + pcb_w - 12, pcb_origin_y + 12, wall])
+            color(COLOR_BOTTOM) cylinder(r=7.0, h=6.0);
+        translate([pcb_origin_x + 12, pcb_origin_y + pcb_l - 12, wall])
+            color(COLOR_BOTTOM) cylinder(r=7.0, h=6.0);
+        translate([pcb_origin_x + pcb_w - 12, pcb_origin_y + pcb_l - 12, wall])
+            color(COLOR_BOTTOM) cylinder(r=7.0, h=6.0);
 
-    // 2. Hai gờ đỡ chống võng & chống xô ở giữa cạnh Trước và Sau
-    pcb_edge_support(pcb_origin_x + pcb_w/2, pcb_origin_y,         20.0,  1); // Giữa cạnh trước
-    pcb_edge_support(pcb_origin_x + pcb_w/2, pcb_origin_y + pcb_l, 20.0, -1); // Giữa cạnh sau
+        // 2. Hai bệ đỡ phẳng ở giữa cạnh Trước và Sau
+        translate([pcb_origin_x + pcb_w/2, pcb_origin_y + 12, wall])
+            color(COLOR_BOTTOM) cylinder(r=7.0, h=6.0);
+        translate([pcb_origin_x + pcb_w/2, pcb_origin_y + pcb_l - 12, wall])
+            color(COLOR_BOTTOM) cylinder(r=7.0, h=6.0);
 
-    // 3. Hai trụ đỡ chịu tải trọng dưới khối Pin 18650 (chống cong phíp do pin nặng)
-    translate([pcb_origin_x + 40, pcb_origin_y + 35, wall])
-        color(COLOR_BOTTOM) cylinder(r=5.0, h=pcb_standoff_h);
-    translate([pcb_origin_x + 70, pcb_origin_y + 35, wall])
-        color(COLOR_BOTTOM) cylinder(r=5.0, h=pcb_standoff_h);
-}
-
-// Module Ke góc chữ L định vị & khóa bo mạch PCB (Không cần bắt ốc)
-module pcb_corner_l_bracket(cx, cy, dir_x, dir_y) {
-    translate([cx, cy, wall]) {
-        mirror([dir_x < 0 ? 1 : 0, 0, 0])
-        mirror([0, dir_y < 0 ? 1 : 0, 0])
-            pcb_canonical_bracket();
-    }
-}
-
-// Module Ke góc chuẩn (cho góc Trước - Trái, PCB mở rộng về +X và +Y)
-module pcb_canonical_bracket() {
-    arm = 14.0;     // Chiều dài cánh ke L (mm)
-    bw = 2.5;       // Bề dày vách ke bên ngoài (mm)
-    pw = 4.0;       // Chiều rộng bệ đỡ mép PCB bên trong (mm - chỉ đỡ 3.6mm mép bo, tránh chân hàn)
-    tol = 0.35;     // Khe hở dung sai 0.35mm để thả bo vừa in
-    lip_h = 3.5;    // Chiều cao gờ ôm mép nhô lên trên mặt bo mạch (mm)
-    h_base = pcb_standoff_h; // 6.0mm
-
-    color(COLOR_BOTTOM) {
-        // 1. Bệ đỡ đáy PCB dạng chữ L (chỉ đỡ 3.6mm mép bo, an toàn tuyệt đối cho chân linh kiện)
-        translate([-tol - bw, -tol - bw, 0]) {
-            cube([arm + tol + bw, pw + tol + bw, h_base]);
-            cube([pw + tol + bw, arm + tol + bw, h_base]);
-        }
-
-        // 2. Vách chữ L ôm mép ngoài bo mạch (có vát nghiêng 45 độ dạng miệng phễu)
-        // Vách song song trục X
-        translate([-tol - bw, -tol - bw, h_base]) {
-            difference() {
-                cube([arm + tol + bw, bw, pcb_t + lip_h]);
-                // Miệng phễu vát 45 độ để thả bo tự trượt vào
-                translate([-1, bw, pcb_t + lip_h])
-                    rotate([45, 0, 0])
-                        cube([arm * 2, bw * 2, bw * 2]);
-            }
-        }
-
-        // Vách song song trục Y
-        translate([-tol - bw, -tol - bw, h_base]) {
-            difference() {
-                cube([bw, arm + tol + bw, pcb_t + lip_h]);
-                // Miệng phễu vát 45 độ để thả bo tự trượt vào
-                translate([bw, -1, pcb_t + lip_h])
-                    rotate([0, -45, 0])
-                        cube([bw * 2, arm * 2, bw * 2]);
-            }
-        }
-
-        // 3. Mấu gài Snap-fit đàn hồi (nhô 0.6mm ở đỉnh phíp PCB, khóa giữ bo chắc chắn)
-        translate([arm * 0.4, -tol, h_base + pcb_t]) {
-            hull() {
-                cube([5.0, 0.6, 0.2]);
-                translate([0, -0.6, 1.0]) cube([5.0, 0.1, 0.1]);
-            }
-        }
-        translate([-tol, arm * 0.4, h_base + pcb_t]) {
-            hull() {
-                cube([0.6, 5.0, 0.2]);
-                translate([-0.6, 0, 1.0]) cube([0.1, 5.0, 0.1]);
-            }
-        }
-    }
-}
-
-// Module Gờ đỡ và chống xô cạnh PCB
-module pcb_edge_support(cx, cy, length, dir_y) {
-    color(COLOR_BOTTOM) {
-        // Bệ đỡ cao 6mm
-        translate([cx - length/2, dir_y > 0 ? cy - 2.5 - 0.35 : cy - 8, wall])
-            cube([length, 10.5, pcb_standoff_h]);
-        // Gờ chặn ngoài cao 9mm
-        translate([cx - length/2, dir_y > 0 ? cy - 2.5 - 0.35 : cy + 0.35, wall + pcb_standoff_h])
-            cube([length, 2.5, pcb_t + 2.0]);
+        // 3. Hai bệ đỡ phẳng chịu tải trọng dưới khối Pin 18650
+        translate([pcb_origin_x + 40, pcb_origin_y + 40, wall])
+            color(COLOR_BOTTOM) cylinder(r=7.0, h=6.0);
+        translate([pcb_origin_x + 85, pcb_origin_y + 40, wall])
+            color(COLOR_BOTTOM) cylinder(r=7.0, h=6.0);
     }
 }
 
@@ -443,7 +377,7 @@ module top_shell() {
             // -------------------------------------------------------------
             
             // 1. Cửa sổ Màn hình TFT 2.8" (có vát viền Bezel 45 độ)
-            tft_center_x = 75;
+            tft_center_x = 80;
             tft_center_y = outer_l / 2 + 10;
             translate([tft_center_x, tft_center_y, lid_t/2]) {
                 cube([tft_active_w, tft_active_h, lid_t + 2], center=true);
@@ -457,7 +391,7 @@ module top_shell() {
             }
 
             // 2. 3 Lỗ cho LED Cảnh báo (Ø5.2mm)
-            led_center_x = 165;
+            led_center_x = 180;
             led_base_y   = outer_l / 2 + 35;
             for (i = [0 : 2]) {
                 translate([led_center_x + (i - 1)*led_pitch, led_base_y, -1]) {
@@ -467,8 +401,8 @@ module top_shell() {
                 }
             }
 
-            // 3. Lỗ Công tắc nguồn bập bênh (20.2 x 15.2 mm)
-            switch_pos_x = 165;
+            // 3. Lỗ Công tắc nguồn bập bênh (20.2 x 13.0 mm)
+            switch_pos_x = 180;
             switch_pos_y = outer_l / 2 - 20;
             translate([switch_pos_x, switch_pos_y, lid_t/2]) {
                 cube([switch_cut_w, switch_cut_h, lid_t + 2], center=true);
@@ -478,7 +412,7 @@ module top_shell() {
                 cube([switch_cut_w + 6, switch_cut_h + 6, 2.4], center=true);
 
             // 4. Lỗ thoát âm cho Còi Buzzer (Cụm 5 lỗ tổ ong nhỏ)
-            buzzer_pos_x = 165;
+            buzzer_pos_x = 180;
             buzzer_pos_y = outer_l / 2 - 55;
             translate([buzzer_pos_x, buzzer_pos_y, -1]) {
                 cylinder(r=1.2, h=lid_t + 2);
@@ -501,7 +435,7 @@ module top_shell() {
     // 4 Cụm trụ ốc âm M3 chuyên dụng bắt bo màn hình TFT 2.8" dưới tấm nắp phẳng
     // Thiết kế dạng trụ bầu dục gia cường: dày Ø7.2mm x 10.0mm, rãnh mồi Ø2.5mm chuẩn cho ren M3
     // Ren M3 tự ta-rô bám cực kỳ cứng cáp và chắc nịch, không sợ nứt nhựa!
-    tft_center_x = 75;
+    tft_center_x = 80;
     tft_center_y = outer_l / 2 + 10;
     for (dir_x = [-1, 1]) {
         for (dir_y = [-1, 1]) {
@@ -539,8 +473,8 @@ module complete_assembly() {
     translate([wall + clearance_x_left, wall + clearance_y, wall + pcb_standoff_h])
         model_pcb();
 
-    // 3. Quạt 40x40x20mm đặt SÁT ĐÁY ở CẠNH PHẢI (ngang tầm MOSFET TO-220)
-    translate([outer_w - wall - fan_t/2, outer_l * 0.42, pcb_standoff_h + fan_h/2])
+    // 3. Quạt 40x40x20mm đặt ở CẠNH PHẢI (ngang tầm MOSFET TO-220)
+    translate([outer_w - wall - fan_t/2, outer_l * 0.42, 26.0])
         model_fan();
 
     // 4. Các chi tiết gắn trên Tấm Nắp Phẳng
@@ -551,11 +485,11 @@ module complete_assembly() {
         top_shell();
         
         // Màn hình TFT 2.8" áp dưới nắp
-        translate([75, outer_l / 2 + 10, -tft_pcb_t])
+        translate([80, outer_l / 2 + 10, -tft_pcb_t])
             model_tft();
             
         // 3 LED cảnh báo
-        led_center_x = 165;
+        led_center_x = 180;
         led_base_y   = outer_l / 2 + 35;
         // LED 1: Đỏ (Fault)
         color([0.9, 0.1, 0.1])
@@ -568,7 +502,7 @@ module complete_assembly() {
             translate([led_center_x + led_pitch, led_base_y, 0]) cylinder(r=2.5, h=5);
             
         // Công tắc nguồn
-        translate([165, outer_l / 2 - 20, 0])
+        translate([180, outer_l / 2 - 20, 0])
             model_switch();
     }
 }

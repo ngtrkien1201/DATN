@@ -65,6 +65,28 @@ class BatteryTwin:
         self.csoh = [100, 100, 100, 100]
         self.cai_class = [0, 0, 0, 0]
 
+        # 6. CELL-LEVEL DIGITAL TWIN (TỪNG CELL 18650 ĐỘC LẬP)
+        self.cell_R0_nominal = 0.045  # 45 mOhm / cell định mức
+        self.cell_R1 = 0.020          # 20 mOhm / cell
+        self.cell_C1 = 500.0          # 500 F / cell
+        self.cell_twins = [
+            {
+                'id': i + 1,
+                'v_meas': 0.0,
+                'ocv': 0.0,
+                'v_term': 0.0,
+                'v_p': 0.0,
+                'v_p_mv': 0.0,
+                'r0': self.cell_R0_nominal,
+                'r0_mohm': round(self.cell_R0_nominal * 1000, 1),
+                'soc': 0.0,
+                'soh': 100.0,
+                'residual_mv': 0.0,
+                'status': 'Normal'
+            }
+            for i in range(4)
+        ]
+
         self.last_sync_timestamp = time.time()
         self.sync_rate = 0.0
         self.sync_status = "Disconnected"
@@ -177,6 +199,58 @@ class BatteryTwin:
         self.twin_state['remaining_capacity'] = self.remaining_capacity
         self.twin_state['cycle_count'] = self.cycle_count
         self.twin_state['status'] = self.real_state['status']
+
+        # BƯỚC 4b: CẬP NHẬT MÔ HÌNH DIGITAL TWIN CHO TỪNG CELL 18650 (CELL-LEVEL TWIN)
+        tau_cell = self.cell_R1 * self.cell_C1
+        exp_cell = math.exp(-dt / tau_cell)
+        
+        for idx in range(4):
+            c_meas_v = float(self.cv[idx]) if idx < len(self.cv) else 0.0
+            if idx < len(self.csoc) and float(self.csoc[idx]) > 0:
+                c_soc = float(self.csoc[idx])
+            else:
+                c_soc = self.internal_twin_soc if self.internal_twin_soc is not None else 50.0
+            
+            c_ocv = interpolate_ocv(c_soc, s_count=1)
+            
+            # Cập nhật phân cực Vp cho từng cell
+            prev_vp_c = self.cell_twins[idx].get('v_p', 0.0)
+            new_vp_c = prev_vp_c * exp_cell + I * self.cell_R1 * (1 - exp_cell)
+            self.cell_twins[idx]['v_p'] = new_vp_c
+            self.cell_twins[idx]['v_p_mv'] = round(new_vp_c * 1000, 1)
+            self.cell_twins[idx]['ocv'] = round(c_ocv, 3)
+            self.cell_twins[idx]['v_meas'] = round(c_meas_v, 3)
+            self.cell_twins[idx]['soc'] = round(c_soc, 1)
+            
+            # Ước lượng nội trở R0 từng cell (OCV - V_meas - V_p = I * R0)
+            r0_c = self.cell_twins[idx].get('r0', self.cell_R0_nominal)
+            if abs(I) > 0.05 and c_meas_v > 1.5:
+                est_r0_c = abs(c_ocv - c_meas_v - new_vp_c) / abs(I)
+                est_r0_c = min(max(est_r0_c, 0.015), 0.200) # Giới hạn dải hợp lý: 15mOhm - 200mOhm
+                r0_c = r0_c * 0.95 + est_r0_c * 0.05
+            self.cell_twins[idx]['r0'] = r0_c
+            self.cell_twins[idx]['r0_mohm'] = round(r0_c * 1000, 1)
+            
+            # Điện áp đầu cực mô hình từng cell
+            v_term_c = c_ocv - I * r0_c - new_vp_c
+            self.cell_twins[idx]['v_term'] = round(v_term_c, 3)
+            
+            # Dư số sai lệch từng cell
+            res_c = abs(c_meas_v - v_term_c)
+            self.cell_twins[idx]['residual_mv'] = round(res_c * 1000, 1)
+            
+            # SOH từng cell
+            soh_c_res = max(0, min(100, 100 * (1 - (r0_c - self.cell_R0_nominal) / self.cell_R0_nominal)))
+            prev_soh_c = self.cell_twins[idx].get('soh', 100.0)
+            self.cell_twins[idx]['soh'] = round(prev_soh_c * 0.99 + soh_c_res * 0.01, 1)
+            
+            # Đánh giá trạng thái từng cell
+            if self.cell_twins[idx]['r0_mohm'] > 70.0 or res_c > 0.08:
+                self.cell_twins[idx]['status'] = 'Degraded'
+            elif self.cell_twins[idx]['r0_mohm'] > 55.0 or res_c > 0.04:
+                self.cell_twins[idx]['status'] = 'Warning'
+            else:
+                self.cell_twins[idx]['status'] = 'Normal'
 
         # BƯỚC 5: Tính Sai số & Model Confidence
         v_diff = abs(self.twin_state['voltage'] - self.real_state['voltage'])
@@ -297,6 +371,24 @@ class BatteryTwin:
         base_temp = self.internal_twin_temp if self.internal_twin_temp is not None else 25.0
         sim_temp = base_temp + (I * I * self.R0 * duration_minutes * 0.1) # Nhiệt tỏa I^2*R
         
+        # Đánh giá mức độ an toàn của kịch bản & Tính Giới hạn dòng an toàn (SOP)
+        is_safe = True
+        risk_reasons = []
+        if sim_v < 11.2:
+            is_safe = False
+            risk_reasons.append("Sụt áp quá ngưỡng cắt (V < 11.2V)")
+        if sim_temp > 45.0:
+            is_safe = False
+            risk_reasons.append(f"Quá nhiệt ({round(sim_temp, 1)}°C > 45°C)")
+        if sim_soc < 10.0:
+            is_safe = False
+            risk_reasons.append("Cạn kiệt dung lượng (< 10%)")
+            
+        max_safe_current = max(0.5, round((sim_ocv - 12.0 - sim_Vp) / max(self.R0, 0.05), 1))
+        max_safe_current = min(max_safe_current, 3.5)
+        status_eval = "AN TOÀN" if is_safe else "CẢNH BÁO NGUY HIỂM"
+        recommendation = "Kịch bản khả thi. Tải vận hành an toàn." if is_safe else f"Khuyến nghị giảm tải. Lý do: {', '.join(risk_reasons)}."
+        
         return {
             'target_current': I,
             'duration_mins': duration_minutes,
@@ -304,7 +396,11 @@ class BatteryTwin:
             'sim_soc': round(sim_soc, 2),
             'sim_temp': round(sim_temp, 2),
             'sim_ocv': round(sim_ocv, 3),
-            'sim_vp': round(sim_Vp, 4)
+            'sim_vp': round(sim_Vp, 4),
+            'is_safe': is_safe,
+            'status_eval': status_eval,
+            'recommendation': recommendation,
+            'max_safe_current': max_safe_current
         }
 
     # ================================================================
@@ -338,7 +434,8 @@ class BatteryTwin:
             'csoc': self.csoc,
             'csoh': self.csoh,
             'cai_class': self.cai_class,
-            'edge_ai_state': self.edge_ai_state
+            'edge_ai_state': self.edge_ai_state,
+            'cell_twins': self.cell_twins
         }
 
     def from_dict(self, data):
@@ -370,6 +467,7 @@ class BatteryTwin:
         self.csoh = data.get('csoh', self.csoh)
         self.cai_class = data.get('cai_class', self.cai_class)
         self.edge_ai_state = data.get('edge_ai_state', self.edge_ai_state)
+        self.cell_twins = data.get('cell_twins', self.cell_twins)
 
     # ================================================================
     # API RESPONSE: Trả về toàn bộ trạng thái cho Dashboard
@@ -485,7 +583,8 @@ class BatteryTwin:
                 'csoc': self.csoc,
                 'csoh': self.csoh,
                 'cai_class': self.cai_class
-            }
+            },
+            'cell_twins': self.cell_twins
         }
 
 battery_twin_instance = BatteryTwin()

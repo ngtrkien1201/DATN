@@ -211,6 +211,85 @@
                     </div>
                 </div>
 
+                <!-- ==================================================== -->
+                <!-- BẢN SAO SỐ CẤP ĐỘ CELL (CELL-LEVEL DIGITAL TWIN)     -->
+                <!-- ==================================================== -->
+                <div class="glass-panel p-4" style="margin-top: 1.5rem; border: 1px solid rgba(59, 130, 246, 0.4); box-shadow: 0 0 20px rgba(59, 130, 246, 0.1);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1rem; flex-wrap:wrap; gap:0.5rem;">
+                        <div>
+                            <h3 class="section-title text-cyan" style="margin:0;"><i data-lucide="layers"></i> Bản sao số Từng Cell 18650 (Cell-Level Digital Twin)</h3>
+                            <p class="text-sm text-muted" style="margin-top:4px;">Mô hình ECM Thevenin bóc tách điện áp phân cực \(V_p\), điện áp hở mạch \(OCV\), và ước lượng nội trở \(R_0\) độc lập cho từng viên pin 18650 trong Pack 4S.</p>
+                        </div>
+                        <span class="status-badge badge-blue"><i data-lucide="cpu" style="width:14px;height:14px;display:inline-block;vertical-align:middle;margin-right:4px;"></i> 4x Real-time ECM Twins</span>
+                    </div>
+
+                    <div class="grid-4" id="cell-twins-cards">
+                        <!-- Cell 1 -->
+                        <div class="glass-panel p-3" id="cell-twin-card-1" style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:10px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                <strong class="text-blue" style="font-size:1.05rem;">Cell #1 (18650)</strong>
+                                <span class="status-badge badge-green" id="ct-badge-1">Bình thường</span>
+                            </div>
+                            <div class="twin-item"><span>Điện áp đo (V_meas)</span><strong id="ct-v-1">-- V</strong></div>
+                            <div class="twin-item"><span>Điện áp OCV</span><strong id="ct-ocv-1">-- V</strong></div>
+                            <div class="twin-item"><span>Phân cực (Vp)</span><strong id="ct-vp-1" class="text-purple">-- mV</strong></div>
+                            <div class="twin-item" style="border-top:1px dashed rgba(255,255,255,0.1); padding-top:6px; margin-top:4px;">
+                                <span class="text-orange" style="font-weight:600;">Nội trở R0</span><strong id="ct-r0-1" class="text-orange" style="font-size:1.1rem;">-- mΩ</strong>
+                            </div>
+                            <div class="twin-item"><span>Sức khỏe (SOH)</span><strong id="ct-soh-1" class="text-green">-- %</strong></div>
+                            <div class="twin-item"><span>Dư số sai lệch</span><strong id="ct-res-1">-- mV</strong></div>
+                        </div>
+
+                        <!-- Cell 2 -->
+                        <div class="glass-panel p-3" id="cell-twin-card-2" style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:10px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                <strong class="text-blue" style="font-size:1.05rem;">Cell #2 (18650)</strong>
+                                <span class="status-badge badge-green" id="ct-badge-2">Bình thường</span>
+                            </div>
+                            <div class="twin-item"><span>Điện áp đo (V_meas)</span><strong id="ct-v-2">-- V</strong></div>
+                            <div class="twin-item"><span>Điện áp OCV</span><strong id="ct-ocv-2">-- V</strong></div>
+                            <div class="twin-item"><span>Phân cực (Vp)</span><strong id="ct-vp-2" class="text-purple">-- mV</strong></div>
+                            <div class="twin-item" style="border-top:1px dashed rgba(255,255,255,0.1); padding-top:6px; margin-top:4px;">
+                                <span class="text-orange" style="font-weight:600;">Nội trở R0</span><strong id="ct-r0-2" class="text-orange" style="font-size:1.1rem;">-- mΩ</strong>
+                            </div>
+                            <div class="twin-item"><span>Sức khỏe (SOH)</span><strong id="ct-soh-2" class="text-green">-- %</strong></div>
+                            <div class="twin-item"><span>Dư số sai lệch</span><strong id="ct-res-2">-- mV</strong></div>
+                        </div>
+
+                        <!-- Cell 3 -->
+                        <div class="glass-panel p-3" id="cell-twin-card-3" style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:10px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                <strong class="text-blue" style="font-size:1.05rem;">Cell #3 (18650)</strong>
+                                <span class="status-badge badge-green" id="ct-badge-3">Bình thường</span>
+                            </div>
+                            <div class="twin-item"><span>Điện áp đo (V_meas)</span><strong id="ct-v-3">-- V</strong></div>
+                            <div class="twin-item"><span>Điện áp OCV</span><strong id="ct-ocv-3">-- V</strong></div>
+                            <div class="twin-item"><span>Phân cực (Vp)</span><strong id="ct-vp-3" class="text-purple">-- mV</strong></div>
+                            <div class="twin-item" style="border-top:1px dashed rgba(255,255,255,0.1); padding-top:6px; margin-top:4px;">
+                                <span class="text-orange" style="font-weight:600;">Nội trở R0</span><strong id="ct-r0-3" class="text-orange" style="font-size:1.1rem;">-- mΩ</strong>
+                            </div>
+                            <div class="twin-item"><span>Sức khỏe (SOH)</span><strong id="ct-soh-3" class="text-green">-- %</strong></div>
+                            <div class="twin-item"><span>Dư số sai lệch</span><strong id="ct-res-3">-- mV</strong></div>
+                        </div>
+
+                        <!-- Cell 4 -->
+                        <div class="glass-panel p-3" id="cell-twin-card-4" style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:10px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                <strong class="text-blue" style="font-size:1.05rem;">Cell #4 (18650)</strong>
+                                <span class="status-badge badge-green" id="ct-badge-4">Bình thường</span>
+                            </div>
+                            <div class="twin-item"><span>Điện áp đo (V_meas)</span><strong id="ct-v-4">-- V</strong></div>
+                            <div class="twin-item"><span>Điện áp OCV</span><strong id="ct-ocv-4">-- V</strong></div>
+                            <div class="twin-item"><span>Phân cực (Vp)</span><strong id="ct-vp-4" class="text-purple">-- mV</strong></div>
+                            <div class="twin-item" style="border-top:1px dashed rgba(255,255,255,0.1); padding-top:6px; margin-top:4px;">
+                                <span class="text-orange" style="font-weight:600;">Nội trở R0</span><strong id="ct-r0-4" class="text-orange" style="font-size:1.1rem;">-- mΩ</strong>
+                            </div>
+                            <div class="twin-item"><span>Sức khỏe (SOH)</span><strong id="ct-soh-4" class="text-green">-- %</strong></div>
+                            <div class="twin-item"><span>Dư số sai lệch</span><strong id="ct-res-4">-- mV</strong></div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="grid-2" style="margin-top: 1.5rem;">
                     <!-- Model Params -->
                     <div class="glass-panel p-4">
@@ -250,6 +329,15 @@
                                 <div><small class="text-muted">SOC dự báo</small><br><strong id="sim-r-soc" class="text-green">0%</strong></div>
                                 <div><small class="text-muted">Nhiệt độ tỏa ra</small><br><strong id="sim-r-t" class="text-orange">0°C</strong></div>
                                 <div><small class="text-muted">Điện áp Vp</small><br><strong id="sim-r-vp">0V</strong></div>
+                            </div>
+                            <div id="sim-decision-box" style="margin-top:12px; padding:10px 14px; border-radius:8px; background:rgba(255,255,255,0.05); border-left:4px solid var(--blue); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                                <div>
+                                    <span id="sim-r-status" class="status-badge badge-green" style="margin-right:8px;">AN TOÀN</span>
+                                    <span id="sim-r-rec" class="text-sm">Kịch bản khả thi. Tải vận hành an toàn.</span>
+                                </div>
+                                <div style="font-size:0.85rem;">
+                                    <span class="text-muted">Giới hạn xả an toàn (SOP): </span><strong id="sim-r-sop" class="text-orange">-- A</strong>
+                                </div>
                             </div>
                         </div>
                     </div>
