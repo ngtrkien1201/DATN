@@ -701,11 +701,11 @@ async function updateTwin() {
             }
             if (document.getElementById('eval-latency')) {
                 const latency = (d.sync_metrics && d.sync_metrics.latency_ms) ? d.sync_metrics.latency_ms : (sysEval.latency_ms || 120);
-                document.getElementById('eval-latency').innerText = `${latency} ms`;
+                document.getElementById('eval-latency').innerText = isOnline ? `${latency} ms` : 'Offline (Chờ mạch)';
             }
             if (document.getElementById('eval-sync-rate')) {
                 const rate = (d.sync_metrics && d.sync_metrics.rate !== undefined) ? d.sync_metrics.rate : (sysEval.sync_rate || 99.8);
-                document.getElementById('eval-sync-rate').innerText = `${rate}%`;
+                document.getElementById('eval-sync-rate').innerText = isOnline ? `${rate}%` : '0% (Mất kết nối)';
             }
 
             // Cập nhật số mẫu đo kiểm động
