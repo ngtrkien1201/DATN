@@ -130,6 +130,15 @@ def get_all_history(limit=5000):
     # Fallback in-memory
     return _in_memory_history
 
+def get_sample_count():
+    """Lấy tổng số bản ghi mẫu đo đã thu thập trong cơ sở dữ liệu"""
+    if ensure_mongo_connection() and collection is not None:
+        try:
+            return collection.count_documents({})
+        except Exception as e:
+            logging.warning("MongoDB count error: %s", e)
+    return len(_in_memory_history)
+
 def clear_all_history():
     global _in_memory_history
     _in_memory_history = []
