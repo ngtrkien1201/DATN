@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Battery Twin | Giám sát pin</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polygon points='12 2 2 7 12 12 22 7 12 2'/><polyline points='2 17 12 22 22 17'/><polyline points='2 12 12 17 22 12'/></svg>">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2.1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2.2">
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
@@ -227,7 +227,7 @@
                         <!-- Cell 1 -->
                         <div class="glass-panel p-3" id="cell-twin-card-1" style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:10px;">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                                <strong class="text-blue" style="font-size:1.05rem;">Cell #1 (18650)</strong>
+                                <strong class="text-blue" style="font-size:1.05rem;">Cell 1 (18650)</strong>
                                 <span class="status-badge badge-green" id="ct-badge-1">Bình thường</span>
                             </div>
                             <div class="twin-item"><span>Điện áp đo (V<sub>meas</sub>)</span><strong id="ct-v-1">-- V</strong></div>
@@ -243,7 +243,7 @@
                         <!-- Cell 2 -->
                         <div class="glass-panel p-3" id="cell-twin-card-2" style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:10px;">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                                <strong class="text-blue" style="font-size:1.05rem;">Cell #2 (18650)</strong>
+                                <strong class="text-blue" style="font-size:1.05rem;">Cell 2 (18650)</strong>
                                 <span class="status-badge badge-green" id="ct-badge-2">Bình thường</span>
                             </div>
                             <div class="twin-item"><span>Điện áp đo (V<sub>meas</sub>)</span><strong id="ct-v-2">-- V</strong></div>
@@ -259,7 +259,7 @@
                         <!-- Cell 3 -->
                         <div class="glass-panel p-3" id="cell-twin-card-3" style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:10px;">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                                <strong class="text-blue" style="font-size:1.05rem;">Cell #3 (18650)</strong>
+                                <strong class="text-blue" style="font-size:1.05rem;">Cell 3 (18650)</strong>
                                 <span class="status-badge badge-green" id="ct-badge-3">Bình thường</span>
                             </div>
                             <div class="twin-item"><span>Điện áp đo (V<sub>meas</sub>)</span><strong id="ct-v-3">-- V</strong></div>
@@ -275,7 +275,7 @@
                         <!-- Cell 4 -->
                         <div class="glass-panel p-3" id="cell-twin-card-4" style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:10px;">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                                <strong class="text-blue" style="font-size:1.05rem;">Cell #4 (18650)</strong>
+                                <strong class="text-blue" style="font-size:1.05rem;">Cell 4 (18650)</strong>
                                 <span class="status-badge badge-green" id="ct-badge-4">Bình thường</span>
                             </div>
                             <div class="twin-item"><span>Điện áp đo (V<sub>meas</sub>)</span><strong id="ct-v-4">-- V</strong></div>
@@ -658,6 +658,6 @@
     </div>
 
     <script>lucide.createIcons();</script>
-    <script src="{{ url_for('static', filename='js/script.js') }}?v=2.0"></script>
+    <script src="{{ url_for('static', filename='js/script.js') }}?v=2.2"></script>
 </body>
 </html>
