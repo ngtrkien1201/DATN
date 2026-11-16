@@ -279,39 +279,97 @@ function addAnomalyRow(tbody, record) {
 
 async function loadInitialAIHistory() {
     const tbody = document.getElementById('ai-history-body');
-    if (!tbody) return;
     try {
         const res = await fetch('/api/history');
         if (!res.ok) return;
         const data = await res.json();
-        const anomalies = data.filter(d => (d.ai_class && d.ai_class !== 0) || (d.fault_flags && d.fault_flags !== 'NORMAL'));
-        if (anomalies.length > 0) {
-            tbody.innerHTML = '';
-            // Lấy tối đa 15 sự cố gần nhất
-            anomalies.slice(0, 15).forEach(a => {
-                const isWarning = a.ai_class === 5 || (a.fault_flags && a.fault_flags.includes('CI') && !a.fault_flags.includes('OV') && !a.fault_flags.includes('UV') && !a.fault_flags.includes('OC') && !a.fault_flags.includes('OT'));
-                const rawClass = a.ai_class === 1 ? 'Over-voltage' : (a.ai_class === 2 ? 'Under-voltage' : (a.ai_class === 3 ? 'Over-current' : (a.ai_class === 4 ? 'Over-heat' : (a.ai_class === 5 ? 'Cell Imbalance' : a.fault_flags))));
-                const faultName = AI_CLASS_MAP_VN[rawClass] || rawClass;
-                let tStr = a.timestamp || '--:--:--';
-                if (tStr.includes('T')) {
-                    const parts = tStr.split('T');
-                    tStr = parts[1].slice(0, 8);
-                }
-                const score = isWarning ? '0.55' : '0.99';
-                addAnomalyRow(tbody, {
-                    time: tStr,
-                    faultName: faultName,
-                    score: score,
-                    voltage: typeof a.voltage === 'number' ? a.voltage.toFixed(2) : (a.voltage || 0),
-                    current: typeof a.current === 'number' ? a.current.toFixed(2) : (a.current || 0),
-                    temperature: typeof a.temperature === 'number' ? a.temperature.toFixed(1) : (a.temperature || 0),
-                    level: isWarning ? 'Warning' : 'Alert'
+
+        // 1. Cập nhật bảng nhật ký telemetry thực tế trong trang Dữ liệu
+        renderTelemetryTable(data);
+
+        // 2. Cập nhật bảng sự cố AI trong trang Chẩn đoán AI
+        if (tbody) {
+            const anomalies = data.filter(d => (d.ai_class && d.ai_class !== 0) || (d.fault_flags && d.fault_flags !== 'NORMAL'));
+            if (anomalies.length > 0) {
+                tbody.innerHTML = '';
+                anomalies.slice(0, 15).forEach(a => {
+                    const isWarning = a.ai_class === 5 || (a.fault_flags && a.fault_flags.includes('CI') && !a.fault_flags.includes('OV') && !a.fault_flags.includes('UV') && !a.fault_flags.includes('OC') && !a.fault_flags.includes('OT'));
+                    const rawClass = a.ai_class === 1 ? 'Over-voltage' : (a.ai_class === 2 ? 'Under-voltage' : (a.ai_class === 3 ? 'Over-current' : (a.ai_class === 4 ? 'Over-heat' : (a.ai_class === 5 ? 'Cell Imbalance' : a.fault_flags))));
+                    const faultName = AI_CLASS_MAP_VN[rawClass] || rawClass;
+                    let tStr = a.timestamp || '--:--:--';
+                    if (tStr.includes('T')) {
+                        const parts = tStr.split('T');
+                        tStr = parts[1].slice(0, 8);
+                    }
+                    const score = isWarning ? '0.55' : '0.99';
+                    addAnomalyRow(tbody, {
+                        time: tStr,
+                        faultName: faultName,
+                        score: score,
+                        voltage: typeof a.voltage === 'number' ? a.voltage.toFixed(2) : (a.voltage || 0),
+                        current: typeof a.current === 'number' ? a.current.toFixed(2) : (a.current || 0),
+                        temperature: typeof a.temperature === 'number' ? a.temperature.toFixed(1) : (a.temperature || 0),
+                        level: isWarning ? 'Warning' : 'Alert'
+                    });
                 });
-            });
-            if (window.lucide) lucide.createIcons();
+            }
         }
+        if (window.lucide) lucide.createIcons();
     } catch(err) {
         console.warn("Could not load initial AI history:", err);
+    }
+}
+
+function renderTelemetryTable(data) {
+    const tbody = document.getElementById('telemetry-table-body');
+    if (!tbody || !Array.isArray(data) || data.length === 0) return;
+    tbody.innerHTML = '';
+    const recent = data.slice().reverse().slice(0, 15);
+    recent.forEach(row => {
+        addTelemetryRow(tbody, row);
+    });
+}
+
+function addTelemetryRow(tbody, row, prepend = false) {
+    const tr = document.createElement('tr');
+    let tStr = row.timestamp || '--:--:--';
+    if (typeof tStr === 'string' && tStr.includes('T')) {
+        const parts = tStr.split('T');
+        tStr = parts[1].slice(0, 8);
+    }
+
+    const v = Number(row.voltage || 0).toFixed(2);
+    const i = Number(row.current || 0).toFixed(2);
+    const t = Number(row.temperature || 0).toFixed(1);
+    const soc = row.soc !== undefined ? row.soc : '--';
+    
+    let cellStr = '--';
+    if (Array.isArray(row.cv) && row.cv.length >= 4) {
+        cellStr = row.cv.slice(0, 4).map(c => Number(c || 0).toFixed(2)).join(' | ');
+    }
+    
+    const rawClass = row.ai_class === 1 ? 'Over-voltage' : (row.ai_class === 2 ? 'Under-voltage' : (row.ai_class === 3 ? 'Over-current' : (row.ai_class === 4 ? 'Over-heat' : (row.ai_class === 5 ? 'Cell Imbalance' : (row.fault_flags && row.fault_flags !== 'NORMAL' ? row.fault_flags : 'Normal')))));
+    const faultName = AI_CLASS_MAP_VN[rawClass] || (rawClass === 'Normal' ? 'Bình thường' : rawClass);
+    const isAlert = row.ai_class && row.ai_class !== 0 && row.ai_class !== 5;
+    const isWarning = row.ai_class === 5;
+    const badgeClass = isAlert ? 'badge-red' : (isWarning ? 'badge-orange' : 'badge-green');
+
+    tr.innerHTML = `
+        <td><strong>${tStr}</strong></td>
+        <td>${v} V</td>
+        <td>${i} A</td>
+        <td>${t} °C</td>
+        <td><strong class="text-green">${soc}%</strong></td>
+        <td style="font-family: monospace; font-size: 12px; color: #94a3b8;">${cellStr}</td>
+        <td><span class="status-badge ${badgeClass}">${faultName}</span></td>
+    `;
+    if (prepend) {
+        tbody.insertBefore(tr, tbody.firstChild);
+        while (tbody.children.length > 15) {
+            tbody.removeChild(tbody.lastChild);
+        }
+    } else {
+        tbody.appendChild(tr);
     }
 }
 
@@ -720,32 +778,22 @@ async function updateTwin() {
             if (document.getElementById('eval-sample-count')) {
                 document.getElementById('eval-sample-count').innerText = `${formattedSamples} mẫu`;
             }
-            if (document.getElementById('exp-live-samples')) {
-                document.getElementById('exp-live-samples').innerText = formattedSamples;
-            }
 
-            // Cập nhật thời gian phiên chạy Live
-            const elapsedSec = Math.floor((Date.now() - sessionStartTime) / 1000);
-            const mins = Math.floor(elapsedSec / 60);
-            const secs = elapsedSec % 60;
-            if (document.getElementById('exp-live-duration')) {
-                document.getElementById('exp-live-duration').innerText = `${mins}m ${secs < 10 ? '0' : ''}${secs}s`;
-            }
-
-            if (document.getElementById('exp-live-name')) {
-                document.getElementById('exp-live-name').innerText = d.demo_mode 
-                    ? `Kịch bản đang chạy: ${d.demo_mode} (Mô phỏng)` 
-                    : 'Giám sát & Đo kiểm Trực tuyến (Live Telemetry Stream)';
-            }
-            if (document.getElementById('exp-live-badge')) {
-                const badgeEl = document.getElementById('exp-live-badge');
-                if (d.demo_mode) {
-                    badgeEl.className = 'status-badge badge-orange';
-                    badgeEl.innerHTML = '<span class="pulse-dot"></span> Demo Trình diễn';
-                } else {
-                    badgeEl.className = 'status-badge badge-blue';
-                    badgeEl.innerHTML = '<span class="pulse-dot"></span> Đang ghi nhận';
-                }
+            // Tự động đẩy bản ghi telemetry mới vào bảng (khi có tín hiệu phần cứng hoặc chạy demo)
+            const telTbody = document.getElementById('telemetry-table-body');
+            if (telTbody && (isOnline || d.demo_mode) && d.real && d.real.voltage > 0) {
+                const emptyEl = telTbody.querySelector('.empty-state');
+                if (emptyEl) telTbody.innerHTML = '';
+                addTelemetryRow(telTbody, {
+                    timestamp: timeStr,
+                    voltage: d.real.voltage,
+                    current: d.real.current,
+                    temperature: d.real.temperature,
+                    soc: d.real.soc,
+                    cv: d.cells ? d.cells.cv : [],
+                    ai_class: d.edge_ai ? (d.edge_ai.anomaly_class === 'Normal Operation' ? 0 : 1) : 0,
+                    fault_flags: d.edge_ai ? d.edge_ai.anomaly_class : 'NORMAL'
+                }, true);
             }
         }
 
