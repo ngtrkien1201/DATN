@@ -416,6 +416,16 @@ function applyDemoScenario(data) {
     return d;
 }
 
+let latestTwinData = {
+    real: { voltage: 15.28, current: 0.45, power: 6.88, energy: 0.012, temperature: 31.0, soc: 72, soh: 99, status: 'Discharging' },
+    cells: { cv: [3.82, 3.82, 3.82, 3.82], csoc: [72, 72, 72, 72], cai_class: [0, 0, 0, 0] },
+    edge_ai: { status: 'Running', status_label: 'Normal', anomaly_class: 'Normal Operation', anomaly_score: 0.02, confidence: 98, inference_time: 1.2 },
+    twin: { voltage: 15.20, terminal_voltage: 15.20, ocv: 15.35, soc: 71.0, cycle_count: 14, polarization_voltage: 0.015, remaining_capacity: 1.58 },
+    errors: { voltage: 0.5, voltage_mv: 80 },
+    sync_metrics: { status: 'Synchronized', latency_ms: 120 },
+    model_parameters: { R0_mOhm: 44.5, R1: 0.02, C1: 1500 }
+};
+
 let demoCommandAbortController = null;
 
 async function selectDemoScenario(mode) {
@@ -425,7 +435,14 @@ async function selectDemoScenario(mode) {
     });
     const scenario = DEMO_SCENARIOS[mode];
     const status = document.getElementById('demo-mode-status');
-    if (status) status.textContent = scenario ? `Đang áp dụng: ${scenario.label}...` : 'Đang chuyển về dữ liệu thực...';
+    if (status) {
+        status.textContent = scenario ? `Đang áp dụng: ${scenario.label}...` : 'Đang chuyển về dữ liệu thực...';
+    }
+
+    // [OPTIMISTIC UI - 0ms]: Cập nhật ngay lập tức giao diện web không cần chờ server mạng
+    if (latestTwinData) {
+        renderDashboard(applyDemoScenario(latestTwinData));
+    }
 
     // Hủy ngay request cũ đang bay dở dang nếu người dùng bấm nhanh liên tiếp
     if (demoCommandAbortController) {
@@ -465,6 +482,9 @@ async function selectDemoScenario(mode) {
             }
         }
     }
+
+    // Khi thoát demo hoặc đổi chế độ, gọi fetch lại ngay
+    isFetching = false;
     updateTwin();
 }
 
@@ -472,352 +492,346 @@ document.querySelectorAll('.demo-mode-btn').forEach(button => {
     button.addEventListener('click', () => selectDemoScenario(button.dataset.demo));
 });
 
+function renderDashboard(d) {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString();
+
+    // ------------------ GLOBAL STATUS BAR ------------------
+    document.getElementById('gb-time').innerText = timeStr;
+    const isOnline = d.sync_metrics.status !== "Disconnected";
+    document.getElementById('gb-sys').innerText = isOnline ? "Đang nhận dữ liệu" : "Mất tín hiệu";
+    document.getElementById('gb-sys').className = isOnline ? "text-green" : "text-red";
+    
+    document.getElementById('gb-esp').innerText = isOnline ? "Đã kết nối" : "Mất kết nối";
+    document.getElementById('gb-esp').className = isOnline ? "" : "text-red";
+    document.getElementById('gb-mqtt').innerText = "Đã kết nối";
+    document.getElementById('gb-mqtt').className = "text-green";
+    
+    document.getElementById('gb-mode').innerText = d.demo_mode ? `DEMO · ${d.demo_mode}` : (STATUS_MODE_MAP[d.real.status] || d.real.status);
+    
+    // ------------------ PAGE 1: SYSTEM OVERVIEW ------------------
+    if(document.getElementById('ov-v')) document.getElementById('ov-v').innerText = d.real.voltage + ' V';
+    if(document.getElementById('ov-i')) document.getElementById('ov-i').innerText = d.real.current + ' A';
+    if(document.getElementById('ov-t')) document.getElementById('ov-t').innerText = d.real.temperature + ' °C';
+    if(document.getElementById('ov-p')) document.getElementById('ov-p').innerText = (d.real.power || (d.real.voltage * d.real.current).toFixed(3)) + ' W';
+    if(document.getElementById('ov-e')) document.getElementById('ov-e').innerText = (d.real.energy || 0.0) + ' Wh';
+    
+    if(document.getElementById('ov-soc')) document.getElementById('ov-soc').innerText = d.real.soc + ' %';
+    if(document.getElementById('ov-soh')) document.getElementById('ov-soh').innerText = d.real.soh + ' %';
+    if(document.getElementById('ov-cycle')) document.getElementById('ov-cycle').innerText = d.twin.cycle_count;
+    
+    if(document.getElementById('ov-tv')) document.getElementById('ov-tv').innerText = d.twin.terminal_voltage + ' V';
+    if(document.getElementById('ov-tsoc')) document.getElementById('ov-tsoc').innerText = d.twin.soc + ' %';
+    if(document.getElementById('ov-err')) document.getElementById('ov-err').innerText = (d.errors.voltage_mv !== undefined ? d.errors.voltage_mv : (d.errors.voltage * 1000).toFixed(1)) + ' mV';
+    if(document.getElementById('ov-sync')) document.getElementById('ov-sync').innerText = SYNC_STATUS_MAP[d.sync_metrics.status] || d.sync_metrics.status;
+    
+    const anomalyRaw = d.edge_ai ? d.edge_ai.anomaly_class : "Normal Operation";
+    if(document.getElementById('ov-anomaly')) document.getElementById('ov-anomaly').innerText = AI_CLASS_MAP_VN[anomalyRaw] || anomalyRaw;
+    if(document.getElementById('ov-ascore')) document.getElementById('ov-ascore').innerText = d.edge_ai ? d.edge_ai.anomaly_score : "0.00";
+    if(document.getElementById('ov-atime')) document.getElementById('ov-atime').innerText = (d.edge_ai ? d.edge_ai.inference_time : 1) + " ms";
+    
+    // ------------------ PAGE 1: CELLS DATA (4S) ------------------
+    if (d.cells) {
+        for (let i = 0; i < 4; i++) {
+            const c_v = d.cells.cv[i].toFixed(2);
+            const c_soc = d.cells.csoc[i];
+            const c_ai = d.cells.cai_class[i];
+            let colorClass = "text-green";
+            if (c_ai === 5) {
+                colorClass = "text-orange";
+            } else if (c_ai > 0) {
+                colorClass = "text-red";
+            }
+            
+            const cellEl = document.getElementById(`ov-c${i+1}`);
+            if (cellEl) {
+                const c_status = c_ai === 0 ? "Ổn định" : (`Lỗi C${c_ai}`);
+                cellEl.innerHTML = `<span class="${colorClass}">${c_v} V | ${c_soc}% | ${c_status}</span>`;
+            }
+        }
+    }
+    
+    // ------------------ PAGE 2: LIVE MONITORING ------------------
+    if(document.getElementById('lm-v')) document.getElementById('lm-v').innerHTML = `${d.real.voltage} <small>V</small>`;
+    if(document.getElementById('lm-i')) document.getElementById('lm-i').innerHTML = `${d.real.current} <small>A</small>`;
+    if(document.getElementById('lm-p')) document.getElementById('lm-p').innerHTML = `${d.real.power || (d.real.voltage * d.real.current).toFixed(3)} <small>W</small>`;
+    if(document.getElementById('lm-soc')) document.getElementById('lm-soc').innerHTML = `${d.real.soc} <small>%</small>`;
+    
+    const monitorPage = document.getElementById('live-page');
+    if(monitorPage && !monitorPage.classList.contains('hidden')) {
+        const liveTb = document.getElementById('live-table-body');
+        if(liveTb) {
+            const row = document.createElement('tr');
+            row.innerHTML = `<td>${timeStr}</td><td>${d.real.voltage} V</td><td>${d.real.current} A</td><td>${d.real.temperature} °C</td><td>${d.real.power || 0} W</td><td>${d.real.energy || 0} Wh</td><td class="text-green">${d.real.soc} %</td>`;
+            liveTb.insertBefore(row, liveTb.firstChild);
+            if(liveTb.children.length > 50) liveTb.removeChild(liveTb.lastChild);
+        }
+    }
+    
+    // ------------------ PAGE 3: DIGITAL TWIN ------------------
+    if(document.getElementById('dt-pb-v')) document.getElementById('dt-pb-v').innerText = d.real.voltage + ' V';
+    if(document.getElementById('dt-pb-i')) document.getElementById('dt-pb-i').innerText = d.real.current + ' A';
+    if(document.getElementById('dt-pb-soc')) document.getElementById('dt-pb-soc').innerText = d.real.soc + ' %';
+    if(document.getElementById('dt-pb-fill')) document.getElementById('dt-pb-fill').style.height = `${d.real.soc}%`;
+    
+    const syncStatusStr = SYNC_STATUS_MAP[d.sync_metrics.status] || d.sync_metrics.status;
+    if(document.getElementById('dt-sync-status')) document.getElementById('dt-sync-status').innerText = syncStatusStr;
+    if(document.getElementById('dt-sync-pv')) document.getElementById('dt-sync-pv').innerText = d.real.voltage + ' V';
+    if(document.getElementById('dt-sync-tv')) document.getElementById('dt-sync-tv').innerText = d.twin.terminal_voltage + ' V';
+    
+    let residual = Math.abs(d.real.voltage - d.twin.terminal_voltage).toFixed(3);
+    if(document.getElementById('dt-sync-res')) document.getElementById('dt-sync-res').innerText = residual + ' V';
+    if(document.getElementById('dt-sync-err')) document.getElementById('dt-sync-err').innerText = d.errors.voltage + ' %';
+    if(document.getElementById('dt-sync-age')) document.getElementById('dt-sync-age').innerText = formatLatency(d.sync_metrics.latency_ms);
+    
+    if(document.getElementById('dt-tb-ocv')) document.getElementById('dt-tb-ocv').innerText = d.twin.ocv + ' V';
+    if(document.getElementById('dt-tb-tv')) document.getElementById('dt-tb-tv').innerText = d.twin.terminal_voltage + ' V';
+    if(document.getElementById('dt-tb-soc')) document.getElementById('dt-tb-soc').innerText = d.twin.soc + ' %';
+    if(document.getElementById('dt-tb-fill')) document.getElementById('dt-tb-fill').style.height = `${d.twin.soc}%`;
+    
+    if(document.getElementById('dt-p-r0')) document.getElementById('dt-p-r0').innerText = d.model_parameters.R0_mOhm + ' mΩ';
+    if(document.getElementById('dt-p-r1')) document.getElementById('dt-p-r1').innerText = (d.model_parameters.R1 * 1000).toFixed(1) + ' mΩ';
+    if(document.getElementById('dt-p-c1')) document.getElementById('dt-p-c1').innerText = d.model_parameters.C1 + ' F';
+    if(document.getElementById('dt-p-vp')) document.getElementById('dt-p-vp').innerText = d.twin.polarization_voltage + ' V';
+    
+    // ------------------ PAGE 3b: CELL-LEVEL DIGITAL TWIN ------------------
+    if (d.cell_twins && Array.isArray(d.cell_twins)) {
+        d.cell_twins.forEach((cell, idx) => {
+            const i = idx + 1;
+            const vEl = document.getElementById(`ct-v-${i}`);
+            const ocvEl = document.getElementById(`ct-ocv-${i}`);
+            const vpEl = document.getElementById(`ct-vp-${i}`);
+            const r0El = document.getElementById(`ct-r0-${i}`);
+            const sohEl = document.getElementById(`ct-soh-${i}`);
+            const resEl = document.getElementById(`ct-res-${i}`);
+            const badgeEl = document.getElementById(`ct-badge-${i}`);
+            const cardEl = document.getElementById(`cell-twin-card-${i}`);
+
+            if (vEl) vEl.innerText = (cell.v_meas || 0).toFixed(2) + ' V';
+            if (ocvEl) ocvEl.innerText = (cell.ocv || 0).toFixed(2) + ' V';
+            if (vpEl) vpEl.innerText = (cell.v_p_mv || 0).toFixed(1) + ' mV';
+            if (r0El) {
+                const r0_val = cell.r0_mohm || 45.0;
+                r0El.innerText = r0_val.toFixed(1) + ' mΩ';
+                if (r0_val > 70.0) {
+                    r0El.className = 'text-red';
+                } else if (r0_val > 55.0) {
+                    r0El.className = 'text-orange';
+                } else {
+                    r0El.className = 'text-green';
+                }
+            }
+            if (sohEl) {
+                const soh_val = cell.soh || 100;
+                sohEl.innerText = soh_val.toFixed(1) + ' %';
+                sohEl.className = soh_val < 80 ? 'text-red' : (soh_val < 90 ? 'text-orange' : 'text-green');
+            }
+            if (resEl) resEl.innerText = (cell.residual_mv || 0).toFixed(1) + ' mV';
+
+            if (badgeEl && cardEl) {
+                if (cell.status === 'Degraded' || (cell.r0_mohm && cell.r0_mohm > 70.0)) {
+                    badgeEl.innerText = 'Lão hóa nặng';
+                    badgeEl.className = 'status-badge badge-red';
+                    cardEl.style.border = '1px solid rgba(239, 68, 68, 0.5)';
+                    cardEl.style.boxShadow = '0 0 12px rgba(239, 68, 68, 0.2)';
+                } else if (cell.status === 'Warning' || (cell.r0_mohm && cell.r0_mohm > 55.0)) {
+                    badgeEl.innerText = 'Chú ý';
+                    badgeEl.className = 'status-badge badge-orange';
+                    cardEl.style.border = '1px solid rgba(245, 158, 11, 0.5)';
+                    cardEl.style.boxShadow = '0 0 12px rgba(245, 158, 11, 0.15)';
+                } else {
+                    badgeEl.innerText = 'Bình thường';
+                    badgeEl.className = 'status-badge badge-green';
+                    cardEl.style.border = '1px solid rgba(255, 255, 255, 0.08)';
+                    cardEl.style.boxShadow = 'none';
+                }
+            }
+        });
+    }
+    
+    // ------------------ PAGE 4: EDGE AI ------------------
+    if(d.edge_ai) {
+        const aiAvailable = d.edge_ai.status !== 'Waiting for Data' && d.edge_ai.inference_time > 0;
+        const aiScore = aiAvailable ? d.edge_ai.anomaly_score : 0;
+        const scoreEl = document.getElementById('ai-score');
+        const scoreBar = document.getElementById('ai-score-bar');
+        if (scoreEl) scoreEl.innerText = aiAvailable ? aiScore.toFixed(2) : '--';
+        
+        // Dynamic color for score
+        let colorVar = 'var(--emerald)';
+        if (d.edge_ai.status_label === 'Alert' || aiScore >= 0.75) {
+            colorVar = 'var(--rose)';
+        } else if (d.edge_ai.status_label === 'Warning' || aiScore >= 0.3) {
+            colorVar = 'var(--orange)';
+        }
+        
+        if (scoreEl) {
+            scoreEl.style.color = colorVar;
+            scoreEl.style.textShadow = `0 0 20px ${colorVar}66`;
+        }
+        if (scoreBar) {
+            scoreBar.style.width = aiAvailable ? `${Math.min(100, Math.max(0, aiScore * 100))}%` : '0%';
+            scoreBar.style.background = colorVar;
+        }
+
+        const statusEl = document.getElementById('ai-status');
+        if (statusEl) {
+            const rawLabel = d.edge_ai.status_label || d.edge_ai.status;
+            statusEl.innerText = aiAvailable ? (AI_STATUS_LABEL_MAP[rawLabel] || rawLabel) : 'Đang chờ dữ liệu';
+            if (d.edge_ai.status_label === 'Normal') {
+                statusEl.className = 'text-green';
+            } else if (d.edge_ai.status_label === 'Warning') {
+                statusEl.className = 'text-orange';
+            } else if (!aiAvailable) {
+                statusEl.className = 'text-muted';
+            } else {
+                statusEl.className = 'text-red';
+            }
+        }
+
+        const rawAiClass = d.edge_ai.anomaly_class;
+        if(document.getElementById('ai-class')) {
+            document.getElementById('ai-class').innerText = aiAvailable ? (AI_CLASS_MAP_VN[rawAiClass] || rawAiClass) : '--';
+        }
+        
+        const conf = d.edge_ai.confidence;
+        if(document.getElementById('ai-conf')) document.getElementById('ai-conf').innerText = aiAvailable ? conf + '%' : '--';
+        const confBar = document.getElementById('ai-conf-bar');
+        if (confBar) {
+            confBar.style.width = aiAvailable ? `${conf}%` : '0%';
+        }
+        
+        if(document.getElementById('ai-time')) document.getElementById('ai-time').innerText = aiAvailable ? d.edge_ai.inference_time + ' ms' : '--';
+        
+        // Cập nhật bảng Lịch sử phát hiện bất thường (Anomaly History) theo thời gian thực
+        if (d.edge_ai && (d.edge_ai.status_label === 'Warning' || d.edge_ai.status_label === 'Alert')) {
+            const tbody = document.getElementById('ai-history-body');
+            if (tbody) {
+                const faultName = AI_CLASS_MAP_VN[rawAiClass] || rawAiClass;
+                const nowSec = Math.floor(Date.now() / 1000);
+                if (!lastRecordedAnomaly || lastRecordedAnomaly.class !== faultName || (nowSec - lastRecordedAnomaly.time > 10)) {
+                    const emptyEl = tbody.querySelector('.empty-state');
+                    if (emptyEl) tbody.removeChild(emptyEl);
+                    const row = document.createElement('tr');
+                    const badgeClass = d.edge_ai.status_label === 'Alert' ? 'badge-red' : 'badge-orange';
+                    row.innerHTML = `<td>${timeStr}</td><td><span class="status-badge ${badgeClass}">${faultName}</span></td><td>${(d.edge_ai.anomaly_score * 100).toFixed(1)}%</td><td>${d.real.voltage} V</td><td>${d.real.current} A</td><td>${d.real.temperature} °C</td>`;
+                    tbody.insertBefore(row, tbody.firstChild);
+                    if (tbody.children.length > 50) tbody.removeChild(tbody.lastChild);
+                    lastRecordedAnomaly = { class: faultName, time: nowSec };
+                }
+            }
+        }
+    }
+    
+    // ------------------ PAGE 5: SOH & LIFETIME ------------------
+    if(document.getElementById('soh-val')) document.getElementById('soh-val').innerText = d.real.soh + ' %';
+    if(document.getElementById('soh-fill')) document.getElementById('soh-fill').style.height = `${d.real.soh}%`;
+    if(document.getElementById('soh-cyc')) document.getElementById('soh-cyc').innerText = d.twin.cycle_count;
+    
+    const capFade = (100 - d.real.soh).toFixed(1);
+    const resGrow = ((d.model_parameters.R0_mOhm - 40.0) / 40.0 * 100).toFixed(1);
+    if(document.getElementById('soh-fade')) document.getElementById('soh-fade').innerText = (capFade > 0 ? capFade : 0.0) + ' %';
+    if(document.getElementById('soh-res-grow')) document.getElementById('soh-res-grow').innerText = (resGrow > 0 ? resGrow : 0.0) + ' %';
+    
+    // RUL (Remaining Useful Life)
+    const rulCycles = Math.max(0, Math.round((d.real.soh - 70) * 33.3));
+    const rulMonths = (rulCycles / 30).toFixed(1);
+    if(document.getElementById('soh-rul-cyc')) document.getElementById('soh-rul-cyc').innerText = rulCycles + ' Chu kỳ';
+    if(document.getElementById('soh-rul-m')) document.getElementById('soh-rul-m').innerText = `Tương đương ~${rulMonths} tháng`;
+    if(document.getElementById('soh-rul-ci')) document.getElementById('soh-rul-ci').innerText = `${Math.max(0, rulCycles - 100)} - ${rulCycles + 100} Chu kỳ`;
+
+    // ------------------ PAGE 6: HARDWARE TELEMETRY ------------------
+    if(document.getElementById('tel-v')) document.getElementById('tel-v').innerText = d.real.voltage + ' V';
+    if(document.getElementById('tel-i')) document.getElementById('tel-i').innerText = d.real.current + ' A';
+    if(document.getElementById('tel-p')) document.getElementById('tel-p').innerText = (d.real.power || (d.real.voltage * d.real.current).toFixed(3)) + ' W';
+    if(document.getElementById('tel-t')) document.getElementById('tel-t').innerText = d.real.temperature + ' °C';
+    if(document.getElementById('tel-e')) document.getElementById('tel-e').innerText = (d.real.energy || 0.0) + ' Wh';
+    if(document.getElementById('tel-soc')) document.getElementById('tel-soc').innerText = d.real.soc + ' %';
+    if(document.getElementById('tel-soh')) document.getElementById('tel-soh').innerText = d.real.soh + ' %';
+
+    if (d.cells) {
+        for (let i = 0; i < 4; i++) {
+            const c_v = d.cells.cv[i].toFixed(2);
+            const c_soc = d.cells.csoc[i];
+            const c_ai = d.cells.cai_class[i];
+            let colorClass = "text-green";
+            if (c_ai === 5) {
+                colorClass = "text-orange";
+            } else if (c_ai > 0) {
+                colorClass = "text-red";
+            }
+            const telCellEl = document.getElementById(`tel-c${i+1}`);
+            if (telCellEl) {
+                const c_status = c_ai === 0 ? "Ổn định" : (`Lỗi C${c_ai}`);
+                telCellEl.innerHTML = `<span class="${colorClass}">${c_v} V | ${c_soc}% | ${c_status}</span>`;
+            }
+        }
+    }
+
+    // Tự động đẩy bản ghi telemetry mới vào bảng (khi có tín hiệu phần cứng hoặc chạy demo)
+    const telTbody = document.getElementById('tel-tbody');
+    if (telTbody && (isOnline || d.demo_mode) && d.real && d.real.voltage > 0) {
+        const rawIso = d.timestamp || new Date().toISOString();
+        const rowKey = `${rawIso}_${d.real.voltage}_${d.real.current}`;
+        
+        if (rowKey !== lastRenderedRowKey) {
+            lastRenderedRowKey = rowKey;
+            
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${timeStr}</td>
+                <td><strong>${d.real.voltage}</strong></td>
+                <td>${d.real.current}</td>
+                <td>${(d.real.power || (d.real.voltage * d.real.current)).toFixed(2)}</td>
+                <td>${d.real.temperature}</td>
+                <td class="text-green">${d.real.soc}%</td>
+                <td>${d.real.soh}%</td>
+                <td><span class="status-badge ${d.edge_ai && d.edge_ai.status_label === 'Normal' ? 'badge-green' : 'badge-orange'}">${AI_CLASS_MAP_VN[d.edge_ai ? d.edge_ai.anomaly_class : 'Normal Operation'] || (d.edge_ai ? d.edge_ai.anomaly_class : 'Bình thường')}</span></td>
+            `;
+            if (telTbody.firstChild) {
+                telTbody.insertBefore(tr, telTbody.firstChild);
+            } else {
+                telTbody.appendChild(tr);
+            }
+            if (telTbody.children.length > 50) {
+                telTbody.removeChild(telTbody.lastChild);
+            }
+        }
+    }
+
+    // Cập nhật cảnh báo & thông báo động
+    updateAlerts(d, timeStr);
+
+    // ------------------ UPDATE CHARTS ------------------
+    let timestamp = now.getTime();
+    
+    pushData(charts.overview, 0, timestamp, d.real.voltage);
+    pushData(charts.lmV, 0, timestamp, d.real.voltage);
+    pushData(charts.lmI, 0, timestamp, d.real.current);
+    pushData(charts.lmT, 0, timestamp, d.real.temperature);
+    pushData(charts.lmP, 0, timestamp, d.real.power || (d.real.voltage * d.real.current));
+    
+    pushData(charts.valVolt, 0, timestamp, d.real.voltage);
+    pushData(charts.valVolt, 1, timestamp, d.twin.terminal_voltage);
+    pushData(charts.valSoc, 0, timestamp, d.real.soc);
+    pushData(charts.valSoc, 1, timestamp, d.twin.soc);
+    pushData(charts.valErr, 0, timestamp, residual);
+    pushData(charts.valRes, 0, timestamp, d.model_parameters.R0_mOhm);
+    
+    // Chỉ cập nhật đồ thị trên trang đang hiển thị để tối ưu hiệu năng
+    updateActiveCharts();
+}
+
 async function updateTwin() {
     if (isFetching) return;
     isFetching = true;
     try {
         const res = await fetch(`/api/digital-twin`);
         if (!res.ok) throw new Error(`Dashboard API returned ${res.status}`);
-        const d = applyDemoScenario(await res.json());
+        latestTwinData = await res.json();
+        const d = applyDemoScenario(latestTwinData);
+        renderDashboard(d);
         
-        const now = new Date();
-        const timeStr = now.toLocaleTimeString();
-
-        // ------------------ GLOBAL STATUS BAR ------------------
-        document.getElementById('gb-time').innerText = timeStr;
-        const isOnline = d.sync_metrics.status !== "Disconnected";
-        document.getElementById('gb-sys').innerText = isOnline ? "Đang nhận dữ liệu" : "Mất tín hiệu";
-        document.getElementById('gb-sys').className = isOnline ? "text-green" : "text-red";
-        
-        document.getElementById('gb-esp').innerText = isOnline ? "Đã kết nối" : "Mất kết nối";
-        document.getElementById('gb-esp').className = isOnline ? "" : "text-red";
-        document.getElementById('gb-mqtt').innerText = "Đã kết nối";
-        document.getElementById('gb-mqtt').className = "text-green";
-        
-        document.getElementById('gb-mode').innerText = d.demo_mode ? `DEMO · ${d.demo_mode}` : (STATUS_MODE_MAP[d.real.status] || d.real.status);
-        
-        // ------------------ PAGE 1: SYSTEM OVERVIEW ------------------
-        if(document.getElementById('ov-v')) document.getElementById('ov-v').innerText = d.real.voltage + ' V';
-        if(document.getElementById('ov-i')) document.getElementById('ov-i').innerText = d.real.current + ' A';
-        if(document.getElementById('ov-t')) document.getElementById('ov-t').innerText = d.real.temperature + ' °C';
-        if(document.getElementById('ov-p')) document.getElementById('ov-p').innerText = (d.real.power || (d.real.voltage * d.real.current).toFixed(3)) + ' W';
-        if(document.getElementById('ov-e')) document.getElementById('ov-e').innerText = (d.real.energy || 0.0) + ' Wh';
-        
-        if(document.getElementById('ov-soc')) document.getElementById('ov-soc').innerText = d.real.soc + ' %';
-        if(document.getElementById('ov-soh')) document.getElementById('ov-soh').innerText = d.real.soh + ' %';
-        if(document.getElementById('ov-cycle')) document.getElementById('ov-cycle').innerText = d.twin.cycle_count;
-        
-        if(document.getElementById('ov-tv')) document.getElementById('ov-tv').innerText = d.twin.terminal_voltage + ' V';
-        if(document.getElementById('ov-tsoc')) document.getElementById('ov-tsoc').innerText = d.twin.soc + ' %';
-        if(document.getElementById('ov-err')) document.getElementById('ov-err').innerText = (d.errors.voltage_mv !== undefined ? d.errors.voltage_mv : (d.errors.voltage * 1000).toFixed(1)) + ' mV';
-        if(document.getElementById('ov-sync')) document.getElementById('ov-sync').innerText = SYNC_STATUS_MAP[d.sync_metrics.status] || d.sync_metrics.status;
-        
-        const anomalyRaw = d.edge_ai ? d.edge_ai.anomaly_class : "Normal Operation";
-        if(document.getElementById('ov-anomaly')) document.getElementById('ov-anomaly').innerText = AI_CLASS_MAP_VN[anomalyRaw] || anomalyRaw;
-        if(document.getElementById('ov-ascore')) document.getElementById('ov-ascore').innerText = d.edge_ai ? d.edge_ai.anomaly_score : "0.00";
-        if(document.getElementById('ov-atime')) document.getElementById('ov-atime').innerText = (d.edge_ai ? d.edge_ai.inference_time : 1) + " ms";
-        
-        // ------------------ PAGE 1: CELLS DATA (4S) ------------------
-        if (d.cells) {
-            for (let i = 0; i < 4; i++) {
-                const c_v = d.cells.cv[i].toFixed(2);
-                const c_soc = d.cells.csoc[i];
-                const c_ai = d.cells.cai_class[i];
-                let colorClass = "text-green";
-                if (c_ai === 5) {
-                    colorClass = "text-orange";
-                } else if (c_ai > 0) {
-                    colorClass = "text-red";
-                }
-                
-                const cellEl = document.getElementById(`ov-c${i+1}`);
-                if (cellEl) {
-                    const c_status = c_ai === 0 ? "Ổn định" : (`Lỗi C${c_ai}`);
-                    cellEl.innerHTML = `<span class="${colorClass}">${c_v} V | ${c_soc}% | ${c_status}</span>`;
-                }
-            }
-        }
-        
-        // ------------------ PAGE 2: LIVE MONITORING ------------------
-        if(document.getElementById('lm-v')) document.getElementById('lm-v').innerHTML = `${d.real.voltage} <small>V</small>`;
-        if(document.getElementById('lm-i')) document.getElementById('lm-i').innerHTML = `${d.real.current} <small>A</small>`;
-        if(document.getElementById('lm-p')) document.getElementById('lm-p').innerHTML = `${d.real.power || (d.real.voltage * d.real.current).toFixed(3)} <small>W</small>`;
-        if(document.getElementById('lm-soc')) document.getElementById('lm-soc').innerHTML = `${d.real.soc} <small>%</small>`;
-        
-        const monitorPage = document.getElementById('live-page');
-        if(monitorPage && !monitorPage.classList.contains('hidden')) {
-            const liveTb = document.getElementById('live-table-body');
-            if(liveTb) {
-                const row = document.createElement('tr');
-                row.innerHTML = `<td>${timeStr}</td><td>${d.real.voltage} V</td><td>${d.real.current} A</td><td>${d.real.temperature} °C</td><td>${d.real.power || 0} W</td><td>${d.real.energy || 0} Wh</td><td class="text-green">${d.real.soc} %</td>`;
-                liveTb.insertBefore(row, liveTb.firstChild);
-                if(liveTb.children.length > 50) liveTb.removeChild(liveTb.lastChild);
-            }
-        }
-        
-        // ------------------ PAGE 3: DIGITAL TWIN ------------------
-        if(document.getElementById('dt-pb-v')) document.getElementById('dt-pb-v').innerText = d.real.voltage + ' V';
-        if(document.getElementById('dt-pb-i')) document.getElementById('dt-pb-i').innerText = d.real.current + ' A';
-        if(document.getElementById('dt-pb-soc')) document.getElementById('dt-pb-soc').innerText = d.real.soc + ' %';
-        if(document.getElementById('dt-pb-fill')) document.getElementById('dt-pb-fill').style.height = `${d.real.soc}%`;
-        
-        const syncStatusStr = SYNC_STATUS_MAP[d.sync_metrics.status] || d.sync_metrics.status;
-        if(document.getElementById('dt-sync-status')) document.getElementById('dt-sync-status').innerText = syncStatusStr;
-        if(document.getElementById('dt-sync-pv')) document.getElementById('dt-sync-pv').innerText = d.real.voltage + ' V';
-        if(document.getElementById('dt-sync-tv')) document.getElementById('dt-sync-tv').innerText = d.twin.terminal_voltage + ' V';
-        
-        let residual = Math.abs(d.real.voltage - d.twin.terminal_voltage).toFixed(3);
-        if(document.getElementById('dt-sync-res')) document.getElementById('dt-sync-res').innerText = residual + ' V';
-        if(document.getElementById('dt-sync-err')) document.getElementById('dt-sync-err').innerText = d.errors.voltage + ' %';
-        if(document.getElementById('dt-sync-age')) document.getElementById('dt-sync-age').innerText = formatLatency(d.sync_metrics.latency_ms);
-        
-        if(document.getElementById('dt-tb-ocv')) document.getElementById('dt-tb-ocv').innerText = d.twin.ocv + ' V';
-        if(document.getElementById('dt-tb-tv')) document.getElementById('dt-tb-tv').innerText = d.twin.terminal_voltage + ' V';
-        if(document.getElementById('dt-tb-soc')) document.getElementById('dt-tb-soc').innerText = d.twin.soc + ' %';
-        if(document.getElementById('dt-tb-fill')) document.getElementById('dt-tb-fill').style.height = `${d.twin.soc}%`;
-        
-        if(document.getElementById('dt-p-r0')) document.getElementById('dt-p-r0').innerText = d.model_parameters.R0_mOhm + ' mΩ';
-        if(document.getElementById('dt-p-r1')) document.getElementById('dt-p-r1').innerText = (d.model_parameters.R1 * 1000).toFixed(1) + ' mΩ';
-        if(document.getElementById('dt-p-c1')) document.getElementById('dt-p-c1').innerText = d.model_parameters.C1 + ' F';
-        if(document.getElementById('dt-p-vp')) document.getElementById('dt-p-vp').innerText = d.twin.polarization_voltage + ' V';
-        
-        // ------------------ PAGE 3b: CELL-LEVEL DIGITAL TWIN ------------------
-        if (d.cell_twins && Array.isArray(d.cell_twins)) {
-            d.cell_twins.forEach((cell, idx) => {
-                const i = idx + 1;
-                const vEl = document.getElementById(`ct-v-${i}`);
-                const ocvEl = document.getElementById(`ct-ocv-${i}`);
-                const vpEl = document.getElementById(`ct-vp-${i}`);
-                const r0El = document.getElementById(`ct-r0-${i}`);
-                const sohEl = document.getElementById(`ct-soh-${i}`);
-                const resEl = document.getElementById(`ct-res-${i}`);
-                const badgeEl = document.getElementById(`ct-badge-${i}`);
-                const cardEl = document.getElementById(`cell-twin-card-${i}`);
-
-                if (vEl) vEl.innerText = (cell.v_meas || 0).toFixed(2) + ' V';
-                if (ocvEl) ocvEl.innerText = (cell.ocv || 0).toFixed(2) + ' V';
-                if (vpEl) vpEl.innerText = (cell.v_p_mv || 0).toFixed(1) + ' mV';
-                if (r0El) {
-                    const r0_val = cell.r0_mohm || 45.0;
-                    r0El.innerText = r0_val.toFixed(1) + ' mΩ';
-                    if (r0_val > 70.0) {
-                        r0El.className = 'text-red';
-                    } else if (r0_val > 55.0) {
-                        r0El.className = 'text-orange';
-                    } else {
-                        r0El.className = 'text-green';
-                    }
-                }
-                if (sohEl) {
-                    const soh_val = cell.soh || 100;
-                    sohEl.innerText = soh_val.toFixed(1) + ' %';
-                    sohEl.className = soh_val < 80 ? 'text-red' : (soh_val < 90 ? 'text-orange' : 'text-green');
-                }
-                if (resEl) resEl.innerText = (cell.residual_mv || 0).toFixed(1) + ' mV';
-
-                if (badgeEl && cardEl) {
-                    if (cell.status === 'Degraded' || (cell.r0_mohm && cell.r0_mohm > 70.0)) {
-                        badgeEl.innerText = 'Lão hóa nặng';
-                        badgeEl.className = 'status-badge badge-red';
-                        cardEl.style.border = '1px solid rgba(239, 68, 68, 0.5)';
-                        cardEl.style.boxShadow = '0 0 12px rgba(239, 68, 68, 0.2)';
-                    } else if (cell.status === 'Warning' || (cell.r0_mohm && cell.r0_mohm > 55.0)) {
-                        badgeEl.innerText = 'Chú ý';
-                        badgeEl.className = 'status-badge badge-orange';
-                        cardEl.style.border = '1px solid rgba(245, 158, 11, 0.5)';
-                        cardEl.style.boxShadow = '0 0 12px rgba(245, 158, 11, 0.15)';
-                    } else {
-                        badgeEl.innerText = 'Bình thường';
-                        badgeEl.className = 'status-badge badge-green';
-                        cardEl.style.border = '1px solid rgba(255, 255, 255, 0.08)';
-                        cardEl.style.boxShadow = 'none';
-                    }
-                }
-            });
-        }
-        
-        // ------------------ PAGE 4: EDGE AI ------------------
-        if(d.edge_ai) {
-            const aiAvailable = d.edge_ai.status !== 'Waiting for Data' && d.edge_ai.inference_time > 0;
-            const aiScore = aiAvailable ? d.edge_ai.anomaly_score : 0;
-            const scoreEl = document.getElementById('ai-score');
-            const scoreBar = document.getElementById('ai-score-bar');
-            if (scoreEl) scoreEl.innerText = aiAvailable ? aiScore.toFixed(2) : '--';
-            
-            // Dynamic color for score
-            let colorVar = 'var(--emerald)';
-            if (d.edge_ai.status_label === 'Alert' || aiScore >= 0.75) {
-                colorVar = 'var(--rose)';
-            } else if (d.edge_ai.status_label === 'Warning' || aiScore >= 0.3) {
-                colorVar = 'var(--orange)';
-            }
-            
-            if (scoreEl) {
-                scoreEl.style.color = colorVar;
-                scoreEl.style.textShadow = `0 0 20px ${colorVar}66`;
-            }
-            if (scoreBar) {
-                scoreBar.style.width = aiAvailable ? `${Math.min(100, Math.max(0, aiScore * 100))}%` : '0%';
-                scoreBar.style.background = colorVar;
-            }
-
-            const statusEl = document.getElementById('ai-status');
-            if (statusEl) {
-                const rawLabel = d.edge_ai.status_label || d.edge_ai.status;
-                statusEl.innerText = aiAvailable ? (AI_STATUS_LABEL_MAP[rawLabel] || rawLabel) : 'Đang chờ dữ liệu';
-                if (d.edge_ai.status_label === 'Normal') {
-                    statusEl.className = 'text-green';
-                } else if (d.edge_ai.status_label === 'Warning') {
-                    statusEl.className = 'text-orange';
-                } else if (!aiAvailable) {
-                    statusEl.className = 'text-muted';
-                } else {
-                    statusEl.className = 'text-red';
-                }
-            }
-
-            const rawAiClass = d.edge_ai.anomaly_class;
-            if(document.getElementById('ai-class')) {
-                document.getElementById('ai-class').innerText = aiAvailable ? (AI_CLASS_MAP_VN[rawAiClass] || rawAiClass) : '--';
-            }
-            
-            const conf = d.edge_ai.confidence;
-            if(document.getElementById('ai-conf')) document.getElementById('ai-conf').innerText = aiAvailable ? conf + '%' : '--';
-            const confBar = document.getElementById('ai-conf-bar');
-            if (confBar) {
-                confBar.style.width = aiAvailable ? `${conf}%` : '0%';
-            }
-            
-            if(document.getElementById('ai-time')) document.getElementById('ai-time').innerText = aiAvailable ? d.edge_ai.inference_time + ' ms' : '--';
-            
-            // Cập nhật bảng Lịch sử phát hiện bất thường (Anomaly History) theo thời gian thực
-            if (d.edge_ai && (d.edge_ai.status_label === 'Warning' || d.edge_ai.status_label === 'Alert')) {
-                const tbody = document.getElementById('ai-history-body');
-                if (tbody) {
-                    const faultName = AI_CLASS_MAP_VN[rawAiClass] || rawAiClass;
-                    const nowSec = Math.floor(Date.now() / 1000);
-                    if (!lastRecordedAnomaly || lastRecordedAnomaly.class !== faultName || (nowSec - lastRecordedAnomaly.time > 10)) {
-                        const emptyEl = tbody.querySelector('.empty-state');
-                        if (emptyEl) tbody.innerHTML = '';
-                        addAnomalyRow(tbody, {
-                            time: timeStr,
-                            faultName: faultName,
-                            score: aiScore.toFixed(2),
-                            voltage: (d.real.voltage || 0).toFixed(2),
-                            current: (d.real.current || 0).toFixed(2),
-                            temperature: (d.real.temperature || 0).toFixed(1),
-                            level: d.edge_ai.status_label
-                        });
-                        lastRecordedAnomaly = { class: faultName, time: nowSec };
-                        if (window.lucide) lucide.createIcons();
-                    }
-                }
-            }
-        }
-        // ------------------ PAGE 5: VALIDATION ------------------
-        if(d.validation) {
-            if(document.getElementById('val-v-mae')) document.getElementById('val-v-mae').innerHTML = `${d.validation.v_mae} <small>V</small>`;
-            if(document.getElementById('val-v-rmse')) document.getElementById('val-v-rmse').innerHTML = `${d.validation.v_rmse} <small>V</small>`;
-            if(document.getElementById('val-v-max')) document.getElementById('val-v-max').innerHTML = `${d.validation.v_max_err} <small>V</small>`;
-            if(document.getElementById('val-soc-mae')) document.getElementById('val-soc-mae').innerHTML = `${d.validation.soc_mae} <small>%</small>`;
-        }
-        
-        // ------------------ PAGE 6: RUL ------------------
-        if(document.getElementById('rul-cycles')) document.getElementById('rul-cycles').innerText = d.aging_model.rul_cycles.split(' ')[0];
-        if(document.getElementById('rul-conf')) document.getElementById('rul-conf').innerText = d.aging_model.rul_confidence_range || 'N/A';
-        if(document.getElementById('rul-soh-cap')) document.getElementById('rul-soh-cap').innerText = d.twin.soh + ' %';
-        if(document.getElementById('rul-soh-res')) document.getElementById('rul-soh-res').innerText = (100 - parseFloat(d.aging_model.resistance_growth)).toFixed(1) + ' %';
-        if(document.getElementById('rul-fade')) document.getElementById('rul-fade').innerText = d.aging_model.capacity_fade;
-        if(document.getElementById('rul-growth')) document.getElementById('rul-growth').innerText = d.aging_model.resistance_growth;
-        if(document.getElementById('rul-est-cap')) document.getElementById('rul-est-cap').innerText = d.twin.remaining_capacity + ' Ah';
-        if(document.getElementById('rul-stage')) {
-            const rawStage = d.aging_model.aging_stage;
-            const badgeEl = document.getElementById('rul-stage');
-            badgeEl.innerText = AGING_STAGE_MAP[rawStage] || rawStage;
-            if (rawStage === 'Normal') badgeEl.className = 'status-badge badge-green';
-            else if (rawStage === 'Degraded') badgeEl.className = 'status-badge badge-orange';
-            else badgeEl.className = 'status-badge badge-red';
-        }
-
-        // ------------------ PAGE 7: DATA & EXPERIMENTS ------------------
-        if (d.system_evaluation || d.validation) {
-            const sysEval = d.system_evaluation || {};
-            if (document.getElementById('eval-ecm-acc')) {
-                document.getElementById('eval-ecm-acc').innerText = sysEval.ecm_accuracy || (d.fidelity && d.fidelity.ecm_accuracy) || '99.1%';
-            }
-            if (document.getElementById('eval-v-mae')) {
-                const vMae = (d.validation && d.validation.v_mae !== undefined) ? d.validation.v_mae : (sysEval.v_mae || '0.024');
-                document.getElementById('eval-v-mae').innerText = `${vMae} V`;
-            }
-            if (document.getElementById('eval-soc-mae')) {
-                const socMae = (d.validation && d.validation.soc_mae !== undefined) ? d.validation.soc_mae : (sysEval.soc_mae || '0.8');
-                document.getElementById('eval-soc-mae').innerText = `${socMae} %`;
-            }
-            if (document.getElementById('eval-ai-time')) {
-                const aiTime = (d.edge_ai && d.edge_ai.inference_time) ? d.edge_ai.inference_time : (sysEval.ai_time || 1.2);
-                document.getElementById('eval-ai-time').innerText = `${aiTime} ms`;
-            }
-            if (document.getElementById('eval-latency')) {
-                const latency = (d.sync_metrics && d.sync_metrics.latency_ms) ? d.sync_metrics.latency_ms : (sysEval.latency_ms || 120);
-                document.getElementById('eval-latency').innerText = isOnline ? `${latency} ms` : 'Offline (Chờ mạch)';
-            }
-            if (document.getElementById('eval-sync-rate')) {
-                const rate = (d.sync_metrics && d.sync_metrics.rate !== undefined) ? d.sync_metrics.rate : (sysEval.sync_rate || 99.8);
-                document.getElementById('eval-sync-rate').innerText = isOnline ? `${rate}%` : '0% (Mất kết nối)';
-            }
-
-            // Cập nhật số mẫu đo kiểm động
-            const chartDataPoints = (charts.overview && charts.overview.data && charts.overview.data.datasets[0]) 
-                ? charts.overview.data.datasets[0].data.length 
-                : 120;
-            const sampleCount = (sysEval.sample_count && sysEval.sample_count > 0) 
-                ? sysEval.sample_count 
-                : Math.max(chartDataPoints, 150);
-            const formattedSamples = Number(sampleCount).toLocaleString('vi-VN');
-
-            if (document.getElementById('eval-sample-count')) {
-                document.getElementById('eval-sample-count').innerText = `${formattedSamples} mẫu`;
-            }
-
-            // Tự động đẩy bản ghi telemetry mới vào bảng (khi có tín hiệu phần cứng hoặc chạy demo)
-            const telTbody = document.getElementById('telemetry-table-body');
-            if (telTbody && (isOnline || d.demo_mode) && d.real && d.real.voltage > 0) {
-                const emptyEl = telTbody.querySelector('.empty-state');
-                if (emptyEl) telTbody.innerHTML = '';
-                addTelemetryRow(telTbody, {
-                    timestamp: timeStr,
-                    voltage: d.real.voltage,
-                    current: d.real.current,
-                    temperature: d.real.temperature,
-                    soc: d.real.soc,
-                    cv: d.cells ? d.cells.cv : [],
-                    ai_class: d.edge_ai ? (d.edge_ai.anomaly_class === 'Normal Operation' ? 0 : 1) : 0,
-                    fault_flags: d.edge_ai ? d.edge_ai.anomaly_class : 'NORMAL'
-                }, true);
-            }
-        }
-
-        // Cập nhật cảnh báo & thông báo động
-        updateAlerts(d, timeStr);
-
-        // ------------------ UPDATE CHARTS ------------------
-        let timestamp = now.getTime();
-        
-        pushData(charts.overview, 0, timestamp, d.real.voltage);
-        pushData(charts.lmV, 0, timestamp, d.real.voltage);
-        pushData(charts.lmI, 0, timestamp, d.real.current);
-        pushData(charts.lmT, 0, timestamp, d.real.temperature);
-        pushData(charts.lmP, 0, timestamp, d.real.power || (d.real.voltage * d.real.current));
-        
-        pushData(charts.valVolt, 0, timestamp, d.real.voltage);
-        pushData(charts.valVolt, 1, timestamp, d.twin.terminal_voltage);
-        pushData(charts.valSoc, 0, timestamp, d.real.soc);
-        pushData(charts.valSoc, 1, timestamp, d.twin.soc);
-        pushData(charts.valErr, 0, timestamp, residual);
-        pushData(charts.valRes, 0, timestamp, d.model_parameters.R0_mOhm);
-        
-        // Chỉ cập nhật đồ thị trên trang đang hiển thị để tối ưu hiệu năng
-        updateActiveCharts();
     } catch (e) {
         console.error("Fetch error: ", e);
         const telemetryStatus = document.getElementById('gb-sys');

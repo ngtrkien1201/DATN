@@ -1,4 +1,14 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+
+/* Reset and smooth subscripts/superscripts */
+sub, sup {
+  font-size: 75%;
+  line-height: 0;
+  position: relative;
+  vertical-align: baseline;
+}
+sub { bottom: -0.25em; }
+sup { top: -0.5em; }
 
 :root {
   color-scheme: dark;
@@ -35,7 +45,7 @@ body {
   overflow: hidden;
   background: radial-gradient(900px 600px at 80% -10%, rgba(37, 99, 170, .12), transparent 65%), var(--bg);
   color: var(--text);
-  font-family: 'DM Sans', system-ui, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   font-size: 14px;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
@@ -80,12 +90,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .logo { display: flex; align-items: center; gap: 12px; margin: 2px 8px 26px; }
 .logo > i { flex: 0 0 auto; color: var(--blue); }
 .logo h2 {
-  margin: 0; color: var(--text); font: 800 16px/1.25 'Manrope', sans-serif;
+  margin: 0; color: var(--text); font: 800 16px/1.25 'Plus Jakarta Sans', 'Inter', sans-serif;
   letter-spacing: -.35px;
 }
 .logo h2 small {
   display: inline-block; margin-top: 5px; color: var(--muted);
-  font: 500 11px/1.3 'DM Sans', sans-serif; letter-spacing: .03em;
+  font: 500 11px/1.3 'Inter', sans-serif; letter-spacing: .03em;
 }
 .gradient-text { color: var(--blue); }
 .menu { display: flex; flex-direction: column; gap: 5px; }
@@ -127,7 +137,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   display: flex; align-items: center; justify-content: space-between; gap: 20px;
   min-height: 84px; margin-bottom: 18px; padding: 7px 2px;
 }
-.topbar h1 { margin: 0; font: 800 clamp(24px, 2.5vw, 32px)/1.2 'Manrope', sans-serif; letter-spacing: -.8px; }
+.topbar h1 { margin: 0; font: 800 clamp(24px, 2.5vw, 32px)/1.2 'Plus Jakarta Sans', 'Inter', sans-serif; letter-spacing: -.8px; }
 .subtitle { margin: 7px 0 0; color: var(--muted); font-size: 13px; }
 .actions { display: flex; gap: 10px; align-items: center; }
 
@@ -172,8 +182,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .kpi-card::before { position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: var(--blue); content: ''; }
 .kpi-card.border-green::before { background: var(--green); }
 .kpi-card > span { color: var(--muted); font-size: 12px; font-weight: 600; }
-.kpi-card h2 { margin: 0; color: var(--text); font: 750 clamp(24px, 2.2vw, 32px)/1.15 'Manrope', sans-serif; letter-spacing: -.7px; overflow-wrap: anywhere; }
-.kpi-card h2 small { color: var(--muted); font: 500 14px 'DM Sans', sans-serif; letter-spacing: 0; }
+.kpi-card h2 { margin: 0; color: var(--text); font: 750 clamp(24px, 2.2vw, 32px)/1.15 'Plus Jakarta Sans', 'Inter', sans-serif; letter-spacing: -.7px; overflow-wrap: anywhere; }
+.kpi-card h2 small { color: var(--muted); font: 500 14px 'Inter', sans-serif; letter-spacing: 0; }
 
 .status-badge {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 5px 10px;

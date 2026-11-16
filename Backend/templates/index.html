@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Battery Twin | Giám sát pin</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polygon points='12 2 2 7 12 12 22 7 12 2'/><polyline points='2 17 12 22 22 17'/><polyline points='2 12 12 17 22 12'/></svg>">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2.1">
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
@@ -183,7 +183,7 @@
                     <div class="glass-panel p-4">
                         <h3 class="section-title text-orange"><i data-lucide="battery-charging"></i> Trạng thái Vật lý (Physical State)</h3>
                         <div class="battery-visual-container"><div class="battery-physical"><div class="battery-fill" id="dt-pb-fill"></div></div></div>
-                        <div class="twin-item"><span>Điện áp đo được (V_meas)</span><strong id="dt-pb-v">0 V</strong></div>
+                        <div class="twin-item"><span>Điện áp đo được (V<sub>meas</sub>)</span><strong id="dt-pb-v">0 V</strong></div>
                         <div class="twin-item"><span>Dòng điện đo được (I)</span><strong id="dt-pb-i">0 A</strong></div>
                         <div class="twin-item"><span>SOC phần cứng</span><strong id="dt-pb-soc" class="text-green">0 %</strong></div>
                     </div>
@@ -194,8 +194,8 @@
                         <div style="text-align:center; padding: 20px 0;">
                             <div class="status-badge badge-blue" style="font-size: 1.1rem; padding: 10px 20px;"><div class="pulse-dot"></div> <span id="dt-sync-status">Đã đồng bộ</span></div>
                         </div>
-                        <div class="twin-item"><span>Điện áp thật (V_meas)</span><strong id="dt-sync-pv">0 V</strong></div>
-                        <div class="twin-item"><span>Điện áp số (V_twin)</span><strong id="dt-sync-tv" class="text-blue">0 V</strong></div>
+                        <div class="twin-item"><span>Điện áp thật (V<sub>meas</sub>)</span><strong id="dt-sync-pv">0 V</strong></div>
+                        <div class="twin-item"><span>Điện áp số (V<sub>twin</sub>)</span><strong id="dt-sync-tv" class="text-blue">0 V</strong></div>
                         <div class="twin-item"><span>Dư số sai lệch (Residual)</span><strong id="dt-sync-res" class="text-orange">0 V</strong></div>
                         <div class="twin-item"><span>Sai số tương đối</span><strong id="dt-sync-err" class="text-red">0 %</strong></div>
                         <div class="twin-item"><span>Độ trễ truyền tin</span><strong id="dt-sync-age">0.0 s</strong></div>
@@ -206,7 +206,7 @@
                         <h3 class="section-title text-blue"><i data-lucide="cpu"></i> Thực thể số (Digital Twin State)</h3>
                         <div class="battery-visual-container"><div class="battery-hologram"><div class="battery-grid"></div><div class="battery-fill-glow" id="dt-tb-fill"></div><div class="scanline"></div></div></div>
                         <div class="twin-item"><span>Điện áp hở mạch (OCV)</span><strong id="dt-tb-ocv">0 V</strong></div>
-                        <div class="twin-item"><span>Điện áp đầu cực (V_term)</span><strong id="dt-tb-tv" class="text-blue">0 V</strong></div>
+                        <div class="twin-item"><span>Điện áp đầu cực (V<sub>term</sub>)</span><strong id="dt-tb-tv" class="text-blue">0 V</strong></div>
                         <div class="twin-item"><span>Mức pin mô hình (SOC)</span><strong id="dt-tb-soc" class="text-green">0 %</strong></div>
                     </div>
                 </div>
@@ -218,7 +218,7 @@
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1rem; flex-wrap:wrap; gap:0.5rem;">
                         <div>
                             <h3 class="section-title text-cyan" style="margin:0;"><i data-lucide="layers"></i> Bản sao số Từng Cell 18650 (Cell-Level Digital Twin)</h3>
-                            <p class="text-sm text-muted" style="margin-top:4px;">Mô hình ECM Thevenin bóc tách điện áp phân cực \(V_p\), điện áp hở mạch \(OCV\), và ước lượng nội trở \(R_0\) độc lập cho từng viên pin 18650 trong Pack 4S.</p>
+                            <p class="text-sm text-muted" style="margin-top:4px;">Mô hình ECM Thevenin bóc tách điện áp phân cực <i>V</i><sub>p</sub>, điện áp hở mạch <i>OCV</i>, và ước lượng nội trở <i>R</i><sub>0</sub> độc lập cho từng viên pin 18650 trong Pack 4S.</p>
                         </div>
                         <span class="status-badge badge-blue"><i data-lucide="cpu" style="width:14px;height:14px;display:inline-block;vertical-align:middle;margin-right:4px;"></i> 4x Real-time ECM Twins</span>
                     </div>
@@ -230,11 +230,11 @@
                                 <strong class="text-blue" style="font-size:1.05rem;">Cell #1 (18650)</strong>
                                 <span class="status-badge badge-green" id="ct-badge-1">Bình thường</span>
                             </div>
-                            <div class="twin-item"><span>Điện áp đo (V_meas)</span><strong id="ct-v-1">-- V</strong></div>
+                            <div class="twin-item"><span>Điện áp đo (V<sub>meas</sub>)</span><strong id="ct-v-1">-- V</strong></div>
                             <div class="twin-item"><span>Điện áp OCV</span><strong id="ct-ocv-1">-- V</strong></div>
-                            <div class="twin-item"><span>Phân cực (Vp)</span><strong id="ct-vp-1" class="text-purple">-- mV</strong></div>
+                            <div class="twin-item"><span>Phân cực (V<sub>p</sub>)</span><strong id="ct-vp-1" class="text-purple">-- mV</strong></div>
                             <div class="twin-item" style="border-top:1px dashed rgba(255,255,255,0.1); padding-top:6px; margin-top:4px;">
-                                <span class="text-orange" style="font-weight:600;">Nội trở R0</span><strong id="ct-r0-1" class="text-orange" style="font-size:1.1rem;">-- mΩ</strong>
+                                <span class="text-orange" style="font-weight:600;">Nội trở R<sub>0</sub></span><strong id="ct-r0-1" class="text-orange" style="font-size:1.1rem;">-- mΩ</strong>
                             </div>
                             <div class="twin-item"><span>Sức khỏe (SOH)</span><strong id="ct-soh-1" class="text-green">-- %</strong></div>
                             <div class="twin-item"><span>Dư số sai lệch</span><strong id="ct-res-1">-- mV</strong></div>
@@ -246,11 +246,11 @@
                                 <strong class="text-blue" style="font-size:1.05rem;">Cell #2 (18650)</strong>
                                 <span class="status-badge badge-green" id="ct-badge-2">Bình thường</span>
                             </div>
-                            <div class="twin-item"><span>Điện áp đo (V_meas)</span><strong id="ct-v-2">-- V</strong></div>
+                            <div class="twin-item"><span>Điện áp đo (V<sub>meas</sub>)</span><strong id="ct-v-2">-- V</strong></div>
                             <div class="twin-item"><span>Điện áp OCV</span><strong id="ct-ocv-2">-- V</strong></div>
-                            <div class="twin-item"><span>Phân cực (Vp)</span><strong id="ct-vp-2" class="text-purple">-- mV</strong></div>
+                            <div class="twin-item"><span>Phân cực (V<sub>p</sub>)</span><strong id="ct-vp-2" class="text-purple">-- mV</strong></div>
                             <div class="twin-item" style="border-top:1px dashed rgba(255,255,255,0.1); padding-top:6px; margin-top:4px;">
-                                <span class="text-orange" style="font-weight:600;">Nội trở R0</span><strong id="ct-r0-2" class="text-orange" style="font-size:1.1rem;">-- mΩ</strong>
+                                <span class="text-orange" style="font-weight:600;">Nội trở R<sub>0</sub></span><strong id="ct-r0-2" class="text-orange" style="font-size:1.1rem;">-- mΩ</strong>
                             </div>
                             <div class="twin-item"><span>Sức khỏe (SOH)</span><strong id="ct-soh-2" class="text-green">-- %</strong></div>
                             <div class="twin-item"><span>Dư số sai lệch</span><strong id="ct-res-2">-- mV</strong></div>
@@ -262,11 +262,11 @@
                                 <strong class="text-blue" style="font-size:1.05rem;">Cell #3 (18650)</strong>
                                 <span class="status-badge badge-green" id="ct-badge-3">Bình thường</span>
                             </div>
-                            <div class="twin-item"><span>Điện áp đo (V_meas)</span><strong id="ct-v-3">-- V</strong></div>
+                            <div class="twin-item"><span>Điện áp đo (V<sub>meas</sub>)</span><strong id="ct-v-3">-- V</strong></div>
                             <div class="twin-item"><span>Điện áp OCV</span><strong id="ct-ocv-3">-- V</strong></div>
-                            <div class="twin-item"><span>Phân cực (Vp)</span><strong id="ct-vp-3" class="text-purple">-- mV</strong></div>
+                            <div class="twin-item"><span>Phân cực (V<sub>p</sub>)</span><strong id="ct-vp-3" class="text-purple">-- mV</strong></div>
                             <div class="twin-item" style="border-top:1px dashed rgba(255,255,255,0.1); padding-top:6px; margin-top:4px;">
-                                <span class="text-orange" style="font-weight:600;">Nội trở R0</span><strong id="ct-r0-3" class="text-orange" style="font-size:1.1rem;">-- mΩ</strong>
+                                <span class="text-orange" style="font-weight:600;">Nội trở R<sub>0</sub></span><strong id="ct-r0-3" class="text-orange" style="font-size:1.1rem;">-- mΩ</strong>
                             </div>
                             <div class="twin-item"><span>Sức khỏe (SOH)</span><strong id="ct-soh-3" class="text-green">-- %</strong></div>
                             <div class="twin-item"><span>Dư số sai lệch</span><strong id="ct-res-3">-- mV</strong></div>
@@ -278,11 +278,11 @@
                                 <strong class="text-blue" style="font-size:1.05rem;">Cell #4 (18650)</strong>
                                 <span class="status-badge badge-green" id="ct-badge-4">Bình thường</span>
                             </div>
-                            <div class="twin-item"><span>Điện áp đo (V_meas)</span><strong id="ct-v-4">-- V</strong></div>
+                            <div class="twin-item"><span>Điện áp đo (V<sub>meas</sub>)</span><strong id="ct-v-4">-- V</strong></div>
                             <div class="twin-item"><span>Điện áp OCV</span><strong id="ct-ocv-4">-- V</strong></div>
-                            <div class="twin-item"><span>Phân cực (Vp)</span><strong id="ct-vp-4" class="text-purple">-- mV</strong></div>
+                            <div class="twin-item"><span>Phân cực (V<sub>p</sub>)</span><strong id="ct-vp-4" class="text-purple">-- mV</strong></div>
                             <div class="twin-item" style="border-top:1px dashed rgba(255,255,255,0.1); padding-top:6px; margin-top:4px;">
-                                <span class="text-orange" style="font-weight:600;">Nội trở R0</span><strong id="ct-r0-4" class="text-orange" style="font-size:1.1rem;">-- mΩ</strong>
+                                <span class="text-orange" style="font-weight:600;">Nội trở R<sub>0</sub></span><strong id="ct-r0-4" class="text-orange" style="font-size:1.1rem;">-- mΩ</strong>
                             </div>
                             <div class="twin-item"><span>Sức khỏe (SOH)</span><strong id="ct-soh-4" class="text-green">-- %</strong></div>
                             <div class="twin-item"><span>Dư số sai lệch</span><strong id="ct-res-4">-- mV</strong></div>
@@ -296,12 +296,12 @@
                         <h3 class="section-title"><i data-lucide="settings"></i> Thông số Mạch ECM Thevenin 1RC</h3>
                         <div class="grid-2">
                             <div>
-                                <div class="twin-item"><span>Nội trở thuần (R0)</span><strong id="dt-p-r0">0 mΩ</strong></div>
-                                <div class="twin-item"><span>Điện trở phân cực (R1)</span><strong id="dt-p-r1">0 mΩ</strong></div>
+                                <div class="twin-item"><span>Nội trở thuần (R<sub>0</sub>)</span><strong id="dt-p-r0">0 mΩ</strong></div>
+                                <div class="twin-item"><span>Điện trở phân cực (R<sub>1</sub>)</span><strong id="dt-p-r1">0 mΩ</strong></div>
                             </div>
                             <div>
-                                <div class="twin-item"><span>Điện dung phân cực (C1)</span><strong id="dt-p-c1">0 F</strong></div>
-                                <div class="twin-item"><span>Điện áp phân cực (Vp)</span><strong id="dt-p-vp">0 V</strong></div>
+                                <div class="twin-item"><span>Điện dung phân cực (C<sub>1</sub>)</span><strong id="dt-p-c1">0 F</strong></div>
+                                <div class="twin-item"><span>Điện áp phân cực (V<sub>p</sub>)</span><strong id="dt-p-vp">0 V</strong></div>
                             </div>
                         </div>
                         <div class="twin-item mt-2"><span>Mô hình toán học</span><strong>Thevenin 1RC</strong></div>
@@ -328,7 +328,7 @@
                                 <div><small class="text-muted">Điện áp dự báo</small><br><strong id="sim-r-v" class="text-blue">0V</strong></div>
                                 <div><small class="text-muted">SOC dự báo</small><br><strong id="sim-r-soc" class="text-green">0%</strong></div>
                                 <div><small class="text-muted">Nhiệt độ tỏa ra</small><br><strong id="sim-r-t" class="text-orange">0°C</strong></div>
-                                <div><small class="text-muted">Điện áp Vp</small><br><strong id="sim-r-vp">0V</strong></div>
+                                <div><small class="text-muted">Điện áp V<sub>p</sub></small><br><strong id="sim-r-vp">0V</strong></div>
                             </div>
                             <div id="sim-decision-box" style="margin-top:12px; padding:10px 14px; border-radius:8px; background:rgba(255,255,255,0.05); border-left:4px solid var(--blue); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
                                 <div>
@@ -435,10 +435,10 @@
                 </div>
 
                 <div class="grid-2" style="margin-top: 1.5rem;">
-                    <div class="glass-panel p-4"><h4 class="chart-title">So sánh Điện áp: Thực tế (V_meas) vs Mô hình (V_twin)</h4><div class="chart-md"><canvas id="c-val-volt"></canvas></div></div>
+                    <div class="glass-panel p-4"><h4 class="chart-title">So sánh Điện áp: Thực tế (V<sub>meas</sub>) vs Mô hình (V<sub>twin</sub>)</h4><div class="chart-md"><canvas id="c-val-volt"></canvas></div></div>
                     <div class="glass-panel p-4"><h4 class="chart-title">So sánh SOC: Phần cứng vs Digital Twin</h4><div class="chart-md"><canvas id="c-val-soc"></canvas></div></div>
                     <div class="glass-panel p-4"><h4 class="chart-title">Dư số Sai lệch Điện áp Residual (V)</h4><div class="chart-md"><canvas id="c-val-err"></canvas></div></div>
-                    <div class="glass-panel p-4"><h4 class="chart-title">Xu hướng Ước lượng Nội trở thuần R0 (mΩ)</h4><div class="chart-md"><canvas id="c-val-res"></canvas></div></div>
+                    <div class="glass-panel p-4"><h4 class="chart-title">Xu hướng Ước lượng Nội trở thuần R<sub>0</sub> (mΩ)</h4><div class="chart-md"><canvas id="c-val-res"></canvas></div></div>
                 </div>
             </div>
 
@@ -500,7 +500,7 @@
                                 <strong class="text-red">Giai đoạn 3: Suy kiệt (EOL)</strong>
                                 <span class="status-badge badge-red">SOH &lt; 80%</span>
                             </div>
-                            <p class="text-sm text-muted">Điểm uốn Knee-point xuất hiện. Tốc độ tăng nội trở R0 vọt nhanh, nguy cơ sụt áp đột ngột và tăng nhiệt. Khuyến nghị thay thế bộ Cell.</p>
+                            <p class="text-sm text-muted">Điểm uốn Knee-point xuất hiện. Tốc độ tăng nội trở R<sub>0</sub> vọt nhanh, nguy cơ sụt áp đột ngột và tăng nhiệt. Khuyến nghị thay thế bộ Cell.</p>
                         </div>
                     </div>
                 </div>

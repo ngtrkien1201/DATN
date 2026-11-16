@@ -60,6 +60,19 @@ volatile DemoMode demoMode = DEMO_DISABLED;
 volatile AlarmLevel telemetryAlarm = ALARM_OFF;
 volatile int demoAiClass = 0;
 
+void sendStm32Command(const char* mosfetCmd, const char* aiResCmd)
+{
+    if (mosfetCmd && strlen(mosfetCmd) > 0) {
+        Serial1.println(mosfetCmd);
+        Serial1.flush();
+        delay(40); // Độ trễ an toàn để ngắt STM32 xử lý xong, tránh tràn bộ đệm ORE
+    }
+    if (aiResCmd && strlen(aiResCmd) > 0) {
+        Serial1.println(aiResCmd);
+        Serial1.flush();
+    }
+}
+
 bool applyGatewayCommand(const String &command)
 {
     String mode = "";
@@ -78,49 +91,45 @@ bool applyGatewayCommand(const String &command)
         demoMode = DEMO_NORMAL;
         currentAlarm = ALARM_SAFE;
         demoAiClass = 0;
-        Serial1.println("MOSFET:1");       // Bat MOSFET PB0 (Quat quay)
-        Serial1.println("AI_RES:0,99.0");  // STM32 TFT hien thi NORMAL
+        sendStm32Command("MOSFET:1", "AI_RES:0,99.0");  // Bat MOSFET PB0 va hien NORMAL
     } else if (mode == "WARN" || mode == "WARNING" || mode == "IMBALANCE") {
         demoMode = DEMO_IMBALANCE;
         currentAlarm = ALARM_WARNING;
         demoAiClass = 5;
-        Serial1.println("MOSFET:1");       // Lech cell la canh bao -> Cho phep quat quay
-        Serial1.println("AI_RES:5,85.0");  // STM32 TFT hien thi IMBALAN
+        sendStm32Command("MOSFET:1", "AI_RES:5,85.0");  // Bat MOSFET PB0 va hien IMBALAN
     } else if (mode == "OV" || mode == "OVERVOLTAGE") {
         demoMode = DEMO_FAULT;
         currentAlarm = ALARM_FAULT;
         demoAiClass = 1;
-        Serial1.println("MOSFET:0");       // Qua ap: Ngat MOSFET PB0 (Quat dung)
-        Serial1.println("AI_RES:1,99.5");  // STM32 TFT hien thi OVER-V
+        sendStm32Command("MOSFET:0", "AI_RES:1,99.5");  // Ngat MOSFET PB0 va hien OVER-V
     } else if (mode == "UV" || mode == "UNDERVOLTAGE") {
         demoMode = DEMO_FAULT;
         currentAlarm = ALARM_FAULT;
         demoAiClass = 2;
-        Serial1.println("MOSFET:0");       // Sut ap: Ngat MOSFET PB0 (Quat dung)
-        Serial1.println("AI_RES:2,99.5");  // STM32 TFT hien thi UNDER-V
+        sendStm32Command("MOSFET:0", "AI_RES:2,99.5");  // Ngat MOSFET PB0 va hien UNDER-V
     } else if (mode == "OC" || mode == "OVERCURRENT") {
         demoMode = DEMO_FAULT;
         currentAlarm = ALARM_FAULT;
         demoAiClass = 3;
-        Serial1.println("MOSFET:0");       // Qua dong: Ngat MOSFET PB0 (Quat dung)
-        Serial1.println("AI_RES:3,99.5");  // STM32 TFT hien thi OVER-I
+        sendStm32Command("MOSFET:0", "AI_RES:3,99.5");  // Ngat MOSFET PB0 va hien OVER-I
     } else if (mode == "OT" || mode == "OVERHEAT" || mode == "OVERTEMPERATURE") {
         demoMode = DEMO_FAULT;
         currentAlarm = ALARM_FAULT;
         demoAiClass = 4;
-        Serial1.println("MOSFET:0");       // Qua nhiet: Ngat MOSFET PB0 (Quat dung)
-        Serial1.println("AI_RES:4,99.5");  // STM32 TFT hien thi OVER-T
+        sendStm32Command("MOSFET:0", "AI_RES:4,99.5");  // Ngat MOSFET PB0 va hien OVER-T
     } else if (mode == "FAULT") {
         demoMode = DEMO_FAULT;
         currentAlarm = ALARM_FAULT;
         demoAiClass = 1;
-        Serial1.println("MOSFET:0");
-        Serial1.println("AI_RES:1,99.5");
+        sendStm32Command("MOSFET:0", "AI_RES:1,99.5");
     } else if (mode == "OFF") {
         demoMode = DEMO_DISABLED;
         currentAlarm = telemetryAlarm;
         demoAiClass = 0;
-        Serial1.println("MOSFET:AUTO");    // Thoat demo: Tra lai tu dong cho cam bien STM32
+        // Thoat demo: Tra lai tu dong cho cam bien STM32 dong thoi reset man hinh TFT ve dung trang thai AI
+        const char* exitAiRes = (currentAlarm == ALARM_SAFE) ? "AI_RES:0,99.0" :
+                                ((currentAlarm == ALARM_WARNING) ? "AI_RES:5,85.0" : "AI_RES:1,99.5");
+        sendStm32Command("MOSFET:AUTO", exitAiRes);
     } else {
         return false;
     }
@@ -526,7 +535,10 @@ void processBatteryTelemetry(String jsonString)
     } else {
         // Trong che do Demo: Lien tuc duy tri trang thai MOSFET va AI Class xuong STM32
         Serial1.printf("AI_RES:%d,99.0\r\n", demoAiClass);
+        Serial1.flush();
+        delay(30);
         Serial1.printf("MOSFET:%s\r\n", (demoAiClass == 0 || demoAiClass == 5) ? "1" : "0");
+        Serial1.flush();
     }
 
     // ============================================================
@@ -563,13 +575,13 @@ static void handleCommandResponse(const String &response)
 void loop() 
 {
     // 1. Luồng kiểm tra lệnh độc lập định kỳ (dự phòng khi chưa cắm pin / chưa có telemetry)
-    // Tần suất 3 giây giúp đảm bảo độ nhạy mà không làm cạn kiệt Quota Vercel (100k requests/tháng)
+    // Tần suất 2 giây giúp bắt lệnh điều khiển nhanh chóng từ Web Dashboard
     static unsigned long lastCommandPollTick = 0;
-    if (WiFi.status() == WL_CONNECTED && (millis() - lastCommandPollTick >= 3000)) {
+    if (WiFi.status() == WL_CONNECTED && (millis() - lastCommandPollTick >= 2000)) {
         lastCommandPollTick = millis();
         HTTPClient commandHttp;
         commandHttp.begin(secureClient, commandPollUrl);
-        commandHttp.setTimeout(2500); // 2.5s đảm bảo bắt tay TLS hoàn tất an toàn
+        commandHttp.setTimeout(2000); // 2.0s đảm bảo bắt tay TLS hoàn tất an toàn
         int commandResponseCode = commandHttp.GET();
         if (commandResponseCode == HTTP_CODE_OK) {
             handleCommandResponse(commandHttp.getString());

@@ -2,6 +2,7 @@
 #include "st7789.h"
 #include "fonts.h"
 #include "Battery.h"
+#include "BatteryConfig.h"
 #include "Temperature.h"
 #include "SOH.h"
 #include <stdio.h>
@@ -182,34 +183,37 @@ void UI_InitDashboard(void)
     ST7789_WriteString(10, 204, "SENTINEL AI:", Font_7x10, EV_CYAN, EV_PANEL_BG);
     // Dòng CONF sẽ được vẽ động bởi UI_UpdateDashboard
 
-    // 5.2 Khung Odometer
+    // 5.2 Khung Thong so Nang luong & Chu ky Pin
     ST7789_DrawFilledRectangle(198, 199, 118, 39, EV_PANEL_BG);
     ST7789_DrawRectangle(198, 199, 315, 237, EV_PANEL_BORDER);
-    ST7789_WriteString(204, 204, "ODO :", Font_7x10, EV_GRAY, EV_PANEL_BG);
+    ST7789_WriteString(204, 204, "ENG :", Font_7x10, EV_GRAY, EV_PANEL_BG);
     ST7789_WriteString(204, 220, "CYC :", Font_7x10, EV_GRAY, EV_PANEL_BG);
 }
 
 // ============================================================
-// CẬP NHẬT GIAO DIỆN XE ĐIỆN THEO THỜI GIAN THỰC (ZERO FLICKER)
+// CẬP NHẬT GIAO DIỆN BMS GIÁM SÁT PIN THEO THỜI GIAN THỰC
 // ============================================================
 void UI_UpdateDashboard(void) 
 {
     char buf[32];
 
     // --------------------------------------------------------
-    // BƯỚC 1: CẦN SỐ XE ĐIỆN VÀ TRẠNG THÁI (P - R - N - D)
+    // BƯỚC 1: TRẠNG THÁI HOẠT ĐỘNG PIN (CHARGE / DISCHG / IDLE)
     // --------------------------------------------------------
     if (Battery.Status != last_status || force_redraw) {
         last_status = Battery.Status;
         if (Battery.Status == BATTERY_CHARGING) {
-            // Đang cắm sạc: Xe ở chế độ Park [P] + Đang sạc năng lượng
-            ST7789_WriteString(56, 5, "[P] R N D", Font_7x10, EV_GREEN, 0x0841);
+            // Đang cắm sạc pin
+            ST7789_WriteString(56, 5, "[CHARGE]", Font_7x10, EV_GREEN, 0x0841);
+            ST7789_WriteString(128, 110, "[DANG SAC ]", Font_7x10, EV_GREEN, EV_PANEL_BG);
         } else if (Battery.Status == BATTERY_DISCHARGING) {
-            // Đang cấp nguồn xả tải: Xe ở chế độ Drive [D]
-            ST7789_WriteString(56, 5, " P R N[D]", Font_7x10, EV_ORANGE, 0x0841);
+            // Đang cấp nguồn xả tải
+            ST7789_WriteString(56, 5, "[DISCHG]", Font_7x10, EV_ORANGE, 0x0841);
+            ST7789_WriteString(128, 110, "[ XA TAI  ]", Font_7x10, EV_ORANGE, EV_PANEL_BG);
         } else {
-            // Xe đang đỗ: Neutral [N]
-            ST7789_WriteString(56, 5, " P R[N] D", Font_7x10, EV_WHITE, 0x0841);
+            // Chế độ pin nghỉ (không tải / không sạc)
+            ST7789_WriteString(56, 5, "[ IDLE ]", Font_7x10, EV_WHITE, 0x0841);
+            ST7789_WriteString(128, 110, "[PIN NGHI ]", Font_7x10, EV_GRAY, EV_PANEL_BG);
         }
     }
 
@@ -267,19 +271,13 @@ void UI_UpdateDashboard(void)
         DrawEVSegmentBar(112, 74, 96, 7, last_soc, Battery.SOC, soc_col);
         last_soc = Battery.SOC;
 
-        // Ước lượng quãng đường di chuyển còn lại của xe điện (Estimated Range)
-        float est_range = (Battery.SOC * 0.45f); // Giả lập tỉ lệ phạm vi di chuyển EV
-        sprintf(buf, "RNG:%4.1fkm", est_range);
+        // Dung lượng khả dụng còn lại của bộ pin (Remaining Capacity Ah)
+        float cap_ah = (BatteryConfig.Capacity_Ah > 0.0f) ? BatteryConfig.Capacity_Ah : 2.2f;
+        float rem_cap = (Battery.SOC * cap_ah) / 100.0f;
+        sprintf(buf, "CAP:%4.2fAh", rem_cap);
         ST7789_WriteString(116, 90, buf, Font_7x10, EV_GREEN, EV_PANEL_BG);
 
-        // Chế độ lái xe điện
-        if (Battery.Status == BATTERY_CHARGING) {
-            ST7789_WriteString(128, 110, "[DANG SAC ]", Font_7x10, EV_GREEN, EV_PANEL_BG);
-        } else if (Battery.Status == BATTERY_DISCHARGING) {
-            ST7789_WriteString(128, 110, "[XA TAI   ]", Font_7x10, EV_ORANGE, EV_PANEL_BG);
-        } else {
-            ST7789_WriteString(128, 110, "[DANG DO  ]", Font_7x10, EV_GRAY, EV_PANEL_BG);
-        }
+
     }
 
     // --------------------------------------------------------

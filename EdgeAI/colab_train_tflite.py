@@ -23,7 +23,7 @@ import os
 # LABELS  (6) : Normal, Over-voltage, Under-voltage, Over-current, Over-heat, Cell-Imbalance
 # ==============================================================================
 
-csv_candidates = ['battery_dataset_4s_edgeai.csv', 'battery_dataset_4s_augmented.csv', 'battery_dataset_4s.csv']
+csv_candidates = ['battery_dataset_4s_edgeai.csv', 'battery_dataset_4s.csv']
 csv_file = None
 for c in csv_candidates:
     if os.path.exists(c):
