@@ -16,7 +16,7 @@ void SOH_Update(float current, float dt)
 {
     // Lấy dung lượng danh định của pin từ cấu hình (Ví dụ: 3.0Ah)
     float capacity_ah = BatteryConfig.Capacity_Ah;
-    if (capacity_ah <= 0.0f) capacity_ah = 2.2f;
+    if (capacity_ah <= 0.0f) capacity_ah = 2.0f;
 
     // Chỉ tích lũy khi pin đang xả (dòng > 0 theo chiều INA219 của bạn)
     if (current > 0.01f) 

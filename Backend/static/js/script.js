@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // 1. ROUTER VIRTUAL (SPA Navigation)
 // ============================================================
 const menuItems = document.querySelectorAll('.menu-item');
@@ -729,16 +729,41 @@ function renderDashboard(d) {
     if(document.getElementById('soh-cyc')) document.getElementById('soh-cyc').innerText = d.twin.cycle_count;
     
     const capFade = (100 - d.real.soh).toFixed(1);
-    const resGrow = ((d.model_parameters.R0_mOhm - 40.0) / 40.0 * 100).toFixed(1);
-    if(document.getElementById('soh-fade')) document.getElementById('soh-fade').innerText = (capFade > 0 ? capFade : 0.0) + ' %';
-    if(document.getElementById('soh-res-grow')) document.getElementById('soh-res-grow').innerText = (resGrow > 0 ? resGrow : 0.0) + ' %';
+    const r0Nominal = 45.0 * 4; // 180 mOhm cho Pack 4S
+    const currentR0mOhm = (d.model_parameters && d.model_parameters.R0_mOhm) ? d.model_parameters.R0_mOhm : (d.twin.internal_resistance || 180.0);
+    const resGrow = (((currentR0mOhm - r0Nominal) / r0Nominal) * 100).toFixed(1);
     
-    // RUL (Remaining Useful Life)
-    const rulCycles = Math.max(0, Math.round((d.real.soh - 70) * 33.3));
-    const rulMonths = (rulCycles / 30).toFixed(1);
-    if(document.getElementById('soh-rul-cyc')) document.getElementById('soh-rul-cyc').innerText = rulCycles + ' Chu kỳ';
-    if(document.getElementById('soh-rul-m')) document.getElementById('soh-rul-m').innerText = `Tương đương ~${rulMonths} tháng`;
-    if(document.getElementById('soh-rul-ci')) document.getElementById('soh-rul-ci').innerText = `${Math.max(0, rulCycles - 100)} - ${rulCycles + 100} Chu kỳ`;
+    // Cập nhật các chỉ số suy hao trên Page RUL
+    if(document.getElementById('rul-fade')) document.getElementById('rul-fade').innerText = (capFade > 0 ? capFade : 0.0) + ' %';
+    if(document.getElementById('rul-growth')) document.getElementById('rul-growth').innerText = (resGrow > 0 ? resGrow : 0.0) + ' %';
+    if(document.getElementById('rul-soh-cap')) document.getElementById('rul-soh-cap').innerText = d.real.soh + ' %';
+    if(document.getElementById('rul-soh-res')) document.getElementById('rul-soh-res').innerText = d.twin.soh + ' %';
+    
+    // Dung lượng định mức và khả dụng còn lại
+    const capNominal = (d.model_parameters && d.model_parameters.capacity_Ah) ? d.model_parameters.capacity_Ah : 2.0;
+    const remCap = (capNominal * (d.real.soc / 100.0)).toFixed(2);
+    if(document.getElementById('rul-est-cap')) document.getElementById('rul-est-cap').innerText = remCap + ' Ah';
+    
+    // RUL (Remaining Useful Life - Chỉ tính và hiển thị theo Chu kỳ hoạt động)
+    const totalLifetimeCycles = 1000;
+    const rulCycles = d.real.soh > 80 ? Math.max(0, Math.round(totalLifetimeCycles * (d.real.soh - 80) / 20)) : 0;
+    if(document.getElementById('rul-cycles')) document.getElementById('rul-cycles').innerText = rulCycles;
+    if(document.getElementById('rul-conf')) document.getElementById('rul-conf').innerText = `${Math.max(0, rulCycles - 80)} - ${rulCycles + 120} chu kỳ`;
+    
+    // Trạng thái giai đoạn thoái hóa
+    if(document.getElementById('rul-stage')) {
+        let stageName = "Bình thường";
+        let badgeClass = "badge-green";
+        if(d.real.soh <= 80 || parseFloat(resGrow) > 50) {
+            stageName = "Hết vòng đời (EOL)";
+            badgeClass = "badge-red";
+        } else if(d.real.soh <= 90 || parseFloat(resGrow) > 20) {
+            stageName = "Bắt đầu suy giảm";
+            badgeClass = "badge-orange";
+        }
+        document.getElementById('rul-stage').innerText = stageName;
+        document.getElementById('rul-stage').className = `status-badge ${badgeClass}`;
+    }
 
     // ------------------ PAGE 6: HARDWARE TELEMETRY ------------------
     if(document.getElementById('tel-v')) document.getElementById('tel-v').innerText = d.real.voltage + ' V';
@@ -871,7 +896,7 @@ async function updateBatteryConfig() {
     const cmdStr = `SET_PIN:${batteryId}`;
     
     // Parse dung lượng từ text (VD: "Generic 18650 3.0Ah" -> 3.0)
-    let capacity = 2.2;
+    let capacity = 2.0;
     const match = batteryText.match(/(\d+(?:\.\d+)?)\s*Ah/i);
     if(match) capacity = parseFloat(match[1]);
 

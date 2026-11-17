@@ -272,7 +272,7 @@ void UI_UpdateDashboard(void)
         last_soc = Battery.SOC;
 
         // Dung lượng khả dụng còn lại của bộ pin (Remaining Capacity Ah)
-        float cap_ah = (BatteryConfig.Capacity_Ah > 0.0f) ? BatteryConfig.Capacity_Ah : 2.2f;
+        float cap_ah = (BatteryConfig.Capacity_Ah > 0.0f) ? BatteryConfig.Capacity_Ah : 2.0f;
         float rem_cap = (Battery.SOC * cap_ah) / 100.0f;
         sprintf(buf, "CAP:%4.2fAh", rem_cap);
         ST7789_WriteString(116, 90, buf, Font_7x10, EV_GREEN, EV_PANEL_BG);

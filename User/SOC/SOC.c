@@ -111,7 +111,7 @@ void SOC_UpdateCC(float current, float dt)
     float capacity_ah = BatteryConfig.Capacity_Ah;
     
     // Đề phòng lỗi chia cho 0 nếu chưa gọi BatteryConfig_Init
-    if (capacity_ah <= 0.0f) capacity_ah = 2.2f; 
+    if (capacity_ah <= 0.0f) capacity_ah = 2.0f; 
     
     float soc_delta = (current * dt) / (capacity_ah * 3600.0f) * 100.0f;
     

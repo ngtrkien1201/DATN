@@ -9,7 +9,7 @@ BatteryConfig_t BatteryConfig;
 ==========================================================*/
 const BatteryConfig_t BatteryDatabase[] = {
     // ID 0: Pin Custom (Dành cho lệnh cấu hình tay)
-    {"Custom", 2.2f, 3.7f, 4.2f, 3.0f},
+    {"Custom", 2.0f, 3.7f, 4.2f, 3.0f},
     
     // ID 1: Generic 18650 1.2Ah
     {"Generic 1.2Ah", 1.2f, 3.7f, 4.2f, 2.75f},
@@ -36,8 +36,8 @@ const BatteryConfig_t BatteryDatabase[] = {
 
 void BatteryConfig_Init(void)
 {
-    // Mặc định khởi động lên sẽ chọn pin số 5 (Generic 2.2Ah)
-    BatteryConfig_Select(5);
+    // Mặc định khởi động lên sẽ chọn pin số 4 (Generic 2.0Ah)
+    BatteryConfig_Select(4);
 }
 
 // Hàm này để Web/ESP32 gọi khi người dùng chọn pin từ danh sách
